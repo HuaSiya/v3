@@ -57,7 +57,7 @@ export const CONTRACTS = [
     describe: (target) => `抢到 ${target} 种不同车型`,
     baseTarget: 3,
     targetStep: 1,
-    maxTarget: 4,
+    maxTarget: 5,
     baseReward: 400,
     rewardStep: 100,
     maxReward: 1400,

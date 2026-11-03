@@ -37,20 +37,60 @@ const TYPE_SPEED_KEY = {
   sports: 'sportsSpeed',
   truck: 'truckSpeed',
   bus: 'busSpeed',
+  taxi: 'taxiSpeed',
+  van: 'vanSpeed',
+  limo: 'limoSpeed',
+  ambulance: 'ambulanceSpeed',
+  firetruck: 'firetruckSpeed',
+  police: 'policeSpeed',
+  supercar: 'supercarSpeed',
 };
 const TYPE_SCORE_KEY = {
   sedan: 'scoreSedan',
   sports: 'scoreSports',
   truck: 'scoreTruck',
   bus: 'scoreBus',
+  taxi: 'scoreTaxi',
+  van: 'scoreVan',
+  limo: 'scoreLimo',
+  ambulance: 'scoreAmbulance',
+  firetruck: 'scoreFiretruck',
+  police: 'scorePolice',
+  supercar: 'scoreSupercar',
 };
 const TYPE_DUR_KEY = {
   sedan: 'durabilitySedan',
   sports: 'durabilitySports',
   truck: 'durabilityTruck',
   bus: 'durabilityBus',
+  taxi: 'durabilityTaxi',
+  van: 'durabilityVan',
+  limo: 'durabilityLimo',
+  ambulance: 'durabilityAmbulance',
+  firetruck: 'durabilityFiretruck',
+  police: 'durabilityPolice',
+  supercar: 'durabilitySupercar',
 };
-const TYPE_NAME = { sedan: '轿车', sports: '跑车', truck: '卡车', bus: '巴士' };
+const TYPE_NAME = {
+  sedan: '轿车',
+  sports: '跑车',
+  truck: '卡车',
+  bus: '巴士',
+  taxi: '出租车',
+  van: '面包车',
+  limo: '加长车',
+  ambulance: '救护车',
+  firetruck: '消防车',
+  police: '警车',
+  supercar: '超级跑车',
+};
+export const RARE_TYPES = new Set([
+  'ambulance',
+  'firetruck',
+  'police',
+  'supercar',
+]);
+export const VEHICLE_TYPES = Object.keys(TYPE_NAME);
 const TYPE_SIZE = {
   // w 只是配置缺失时的兜底；实际车宽读取 config.widthXxx。
   // 车道宽为 1，车身只占 0.60~0.80，给擦身而过留出侧向余量。
@@ -58,12 +98,26 @@ const TYPE_SIZE = {
   sports: { w: 0.60, l: 1.32 },
   truck: { w: 0.76, l: 1.98 },
   bus: { w: 0.80, l: 2.55 },
+  taxi: { w: 0.71, l: 1.44 },
+  van: { w: 0.78, l: 1.85 },
+  limo: { w: 0.79, l: 2.35 },
+  ambulance: { w: 0.82, l: 2.25 },
+  firetruck: { w: 0.85, l: 2.7 },
+  police: { w: 0.72, l: 1.55 },
+  supercar: { w: 0.64, l: 1.28 },
 };
 const TYPE_WIDTH_KEY = {
   sedan: 'widthSedan',
   sports: 'widthSports',
   truck: 'widthTruck',
   bus: 'widthBus',
+  taxi: 'widthTaxi',
+  van: 'widthVan',
+  limo: 'widthLimo',
+  ambulance: 'widthAmbulance',
+  firetruck: 'widthFiretruck',
+  police: 'widthPolice',
+  supercar: 'widthSupercar',
 };
 const TYPE_LATERAL_KEY = {
   sedan: {
@@ -86,26 +140,82 @@ const TYPE_LATERAL_KEY = {
     accel: 'lateralAccelBus',
     decel: 'lateralDecelBus',
   },
+  taxi: {
+    speed: 'lateralSpeedTaxi',
+    accel: 'lateralAccelTaxi',
+    decel: 'lateralDecelTaxi',
+  },
+  van: {
+    speed: 'lateralSpeedVan',
+    accel: 'lateralAccelVan',
+    decel: 'lateralDecelVan',
+  },
+  limo: {
+    speed: 'lateralSpeedLimo',
+    accel: 'lateralAccelLimo',
+    decel: 'lateralDecelLimo',
+  },
+  ambulance: {
+    speed: 'lateralSpeedAmbulance',
+    accel: 'lateralAccelAmbulance',
+    decel: 'lateralDecelAmbulance',
+  },
+  firetruck: {
+    speed: 'lateralSpeedFiretruck',
+    accel: 'lateralAccelFiretruck',
+    decel: 'lateralDecelFiretruck',
+  },
+  police: {
+    speed: 'lateralSpeedPolice',
+    accel: 'lateralAccelPolice',
+    decel: 'lateralDecelPolice',
+  },
+  supercar: {
+    speed: 'lateralSpeedSupercar',
+    accel: 'lateralAccelSupercar',
+    decel: 'lateralDecelSupercar',
+  },
 };
 const DEFAULT_LATERAL = { speed: 2.8, accel: 16, decel: 22 };
 const TYPE_WEIGHTS = [
-  ['sedan', 0.42],
-  ['truck', 0.26],
-  ['sports', 0.18],
-  ['bus', 0.14],
+  ['sedan', 0.28],
+  ['truck', 0.17],
+  ['sports', 0.14],
+  ['taxi', 0.13],
+  ['van', 0.09],
+  ['bus', 0.05],
+  ['limo', 0.03],
+  ['ambulance', 0.04],
+  ['firetruck', 0.02],
+  ['police', 0.03],
+  ['supercar', 0.02],
 ];
 // 同向车道少放慢车：慢车容易当“领头车”把后面压成一整排。
 const SAME_DIR_WEIGHTS = [
-  ['sedan', 0.52],
-  ['sports', 0.24],
-  ['truck', 0.16],
-  ['bus', 0.08],
+  ['sedan', 0.34],
+  ['taxi', 0.17],
+  ['sports', 0.17],
+  ['truck', 0.11],
+  ['van', 0.08],
+  ['bus', 0.03],
+  ['limo', 0.02],
+  ['ambulance', 0.03],
+  ['firetruck', 0.01],
+  ['police', 0.03],
+  ['supercar', 0.01],
 ];
 const PALETTES = {
   sedan: ['#5f8fd9', '#e97c5b', '#8ac6a2', '#d9c25f', '#a78fd9', '#e4e4de', '#7d8aa0'],
   sports: ['#ff5d5d', '#ffb020', '#33c4a6', '#5e7cff', '#ff7ac8', '#f4f4f0'],
   truck: ['#4f7fb8', '#c9744d', '#6f9e6f', '#b7b2a4', '#8d6e63'],
   bus: ['#f2c14e', '#4fa3d1', '#e26969', '#7aae7a', '#b18fd4'],
+  taxi: ['#f2c14e', '#f4d35e', '#e8b73a', '#ffd166'],
+  van: ['#6f9e6f', '#b7b2a4', '#7f8fa0', '#c9744d', '#5f8fd9'],
+  limo: ['#2f3640', '#4b4f58', '#6a4c93', '#b0a38e', '#1f2933'],
+  ambulance: ['#f4f4f0', '#e8e8e0', '#ffffff', '#d9d9d0'],
+  firetruck: ['#d63c3c', '#e14b3b', '#c23333', '#f05a4a'],
+  police: ['#1f2933', '#2b3542', '#e4e4de', '#3b4a5a'],
+  supercar: ['#ff3b30', '#ffd23f', '#33c4a6', '#5e7cff', '#ff7ac8', '#f4f4f0'],
 };
 
 const typeSpeed = (type) => config[TYPE_SPEED_KEY[type]];
@@ -163,6 +273,49 @@ export function typePassiveText(type) {
       return config.busBulletTimeBonus > 0
         ? `子弹时间 +${formatTraitValue(config.busBulletTimeBonus)}s`
         : '';
+    case 'taxi':
+      return config.taxiTipBonus > 0
+        ? `夺车小费 +${formatTraitValue(config.taxiTipBonus)}`
+        : '';
+    case 'van': {
+      const factor = Number(config.vanBumpPenaltyFactor);
+      return Number.isFinite(factor) && factor < 1
+        ? `同向碰撞扣耐久 ×${formatTraitValue(Math.max(0, factor))}`
+        : '';
+    }
+    case 'limo': {
+      const bonus = Number(config.limoScoreBonus);
+      return Number.isFinite(bonus) && bonus > 0
+        ? `驾驶得分 +${formatTraitValue(bonus * 100)}%`
+        : '';
+    }
+    case 'ambulance':
+      return config.ambulanceBulletTimeBonus > 0
+        ? `子弹时间 +${formatTraitValue(config.ambulanceBulletTimeBonus)}s`
+        : '';
+    case 'firetruck': {
+      const factor = Number(config.fireBumpPenaltyFactor);
+      if (Number.isFinite(factor) && factor < 1) {
+        return `同向碰撞扣耐久 ×${formatTraitValue(Math.max(0, factor))}，顶开前车`;
+      }
+      return config.fireBumpShoveExtra > 0 ? '同向碰撞顶开前车' : '';
+    }
+    case 'police': {
+      const bounty = Number(config.policeBountyBonus);
+      const combo = Number(config.policeComboBonus);
+      const parts = [];
+      if (Number.isFinite(bounty) && bounty > 0) {
+        parts.push(`夺车赏金 +${formatTraitValue(bounty)}`);
+      }
+      if (Number.isFinite(combo) && combo > 0) {
+        parts.push(`连击窗口 +${formatTraitValue(combo)}s`);
+      }
+      return parts.join('，');
+    }
+    case 'supercar':
+      return config.superWrongWayBonus > 0
+        ? `逆行倍率 +${formatTraitValue(config.superWrongWayBonus)}×`
+        : '';
     default:
       return '';
   }
@@ -185,9 +338,63 @@ export function typePassiveShort(type) {
       return config.busBulletTimeBonus > 0
         ? `弹时+${formatTraitValue(config.busBulletTimeBonus)}s`
         : '';
+    case 'taxi':
+      return config.taxiTipBonus > 0
+        ? `小费+${formatTraitValue(config.taxiTipBonus)}`
+        : '';
+    case 'van': {
+      const factor = Number(config.vanBumpPenaltyFactor);
+      return Number.isFinite(factor) && factor < 1
+        ? `碰撞×${formatTraitValue(Math.max(0, factor))}`
+        : '';
+    }
+    case 'limo': {
+      const bonus = Number(config.limoScoreBonus);
+      return Number.isFinite(bonus) && bonus > 0
+        ? `得分+${formatTraitValue(bonus * 100)}%`
+        : '';
+    }
+    case 'ambulance':
+      return config.ambulanceBulletTimeBonus > 0
+        ? `弹时+${formatTraitValue(config.ambulanceBulletTimeBonus)}s`
+        : '';
+    case 'firetruck': {
+      const factor = Number(config.fireBumpPenaltyFactor);
+      return Number.isFinite(factor) && factor < 1
+        ? `碰撞×${formatTraitValue(Math.max(0, factor))}`
+        : '顶开前车';
+    }
+    case 'police':
+      return config.policeBountyBonus > 0
+        ? `赏金+${formatTraitValue(config.policeBountyBonus)}`
+        : '';
+    case 'supercar':
+      return config.superWrongWayBonus > 0
+        ? `逆行+${formatTraitValue(config.superWrongWayBonus)}×`
+        : '';
     default:
       return '';
   }
+}
+
+export function getVehicleCatalog() {
+  const oncomingWeights = new Map(TYPE_WEIGHTS);
+  const sameDirWeights = new Map(SAME_DIR_WEIGHTS);
+  return VEHICLE_TYPES.map((type) => ({
+    type,
+    name: TYPE_NAME[type],
+    rare: RARE_TYPES.has(type),
+    speed: typeSpeed(type),
+    score: typeScore(type),
+    durability: typeDurability(type),
+    width: typeW(type),
+    length: typeL(type),
+    lateral: typeLateralStats(type),
+    passive: typePassiveText(type),
+    color: (PALETTES[type] || PALETTES.sedan)[0],
+    oncomingWeight: oncomingWeights.get(type) || 0,
+    sameDirWeight: sameDirWeights.get(type) || 0,
+  }));
 }
 
 let carIdCounter = 0;
@@ -822,7 +1029,11 @@ export class Game {
     const car = this.playerCar;
     this.state = 'roof';
     const bulletBonus =
-      car.type === 'bus' ? config.busBulletTimeBonus : 0;
+      car.type === 'bus'
+        ? config.busBulletTimeBonus
+        : car.type === 'ambulance'
+          ? config.ambulanceBulletTimeBonus
+          : 0;
     this.bulletTimeMax = config.bulletTimeDuration + bulletBonus;
     this.bulletTimeRemaining = this.bulletTimeMax;
     this.btEmptyNotified = false;
@@ -898,7 +1109,12 @@ export class Game {
       return;
     }
 
-    const mult = this.isWrongWay ? this.wrongWayMultiplier : 1;
+    const limoBonus =
+      car.type === 'limo'
+        ? Math.max(0, Number(config.limoScoreBonus) || 0)
+        : 0;
+    const mult =
+      (this.isWrongWay ? this.wrongWayMultiplier : 1) * (1 + limoBonus);
     this.score += typeScore(car.type) * mult * dt;
 
     if (this.comboTimer > 0) {
@@ -1046,12 +1262,18 @@ export class Game {
     return this.wrongWayMultiplierForTier(this.wrongWayTier());
   }
 
+  get wrongWayTypeBonus() {
+    if (this.playerCar && this.playerCar.type === 'sports') {
+      return config.sportsWrongWayBonus;
+    }
+    if (this.playerCar && this.playerCar.type === 'supercar') {
+      return config.superWrongWayBonus;
+    }
+    return 0;
+  }
+
   get wrongWayMultiplier() {
-    const bonus =
-      this.playerCar && this.playerCar.type === 'sports'
-        ? config.sportsWrongWayBonus
-        : 0;
-    return this.wrongWayTierMultiplier + bonus;
+    return this.wrongWayTierMultiplier + this.wrongWayTypeBonus;
   }
 
   get wrongWayInfo() {
@@ -1059,10 +1281,7 @@ export class Game {
     const t2 = Math.max(t1, Number(config.wrongWayRampTime2) || 0);
     const tier = this.wrongWayTier();
     const tierMultiplier = this.wrongWayMultiplierForTier(tier);
-    const bonus =
-      this.playerCar && this.playerCar.type === 'sports'
-        ? config.sportsWrongWayBonus
-        : 0;
+    const bonus = this.wrongWayTypeBonus;
     let progress = 1;
     if (tier === 0) {
       progress = t1 > 0 ? clamp(this.wrongWayHeat / t1, 0, 1) : 1;
@@ -1154,15 +1373,22 @@ export class Game {
     if (overlapX <= 0 || overlapY <= 0) return;
 
     const truck = pc.type === 'truck';
+    const firetruck = pc.type === 'firetruck';
     const truckImmune = truck && config.truckBumpPenaltyImmune > 0;
 
     if (pc.bumpFxCooldown <= 0) {
       pc.bumpFxCooldown = config.bumpCooldown;
       if (!truckImmune) {
+        const bumpFactor =
+          pc.type === 'van'
+            ? Math.max(0, Number(config.vanBumpPenaltyFactor) || 0)
+            : firetruck
+              ? Math.max(0, Number(config.fireBumpPenaltyFactor) || 0)
+              : 1;
         // 同向碰撞本身不致死：耐久最低只扣到 0.4s，保证不会因为一次碰撞直接爆炸。
         pc.durability = Math.max(
           0.4,
-          pc.durability - config.collisionDurabilityPenalty
+          pc.durability - config.collisionDurabilityPenalty * bumpFactor
         );
       }
       this.shake = Math.max(this.shake, 0.8 * config.screenShake);
@@ -1177,10 +1403,13 @@ export class Game {
         pc.bumpBoostTimer = Math.max(pc.bumpBoostTimer, config.bumpSlowTime);
         pc.bumpBoostSpeed =
           Math.max(pc.cruiseSpeed, car.speed) * config.bumpShoveFactor;
-      } else if (truck) {
-        // 卡车被动：追尾同向车时把对方顶开，自己不减速；给被顶车一个临时速度，
-        // 避免两车下一帧又贴在一起。
-        car.y += overlapY + config.truckBumpShoveExtra;
+      } else if (truck || firetruck) {
+        // 卡车/消防车被动：追尾同向车时把对方顶开，自己不减速；
+        // 给被顶车一个临时速度，避免两车下一帧又贴在一起。
+        const shoveExtra = firetruck
+          ? Math.max(0, Number(config.fireBumpShoveExtra) || 0)
+          : config.truckBumpShoveExtra;
+        car.y += overlapY + shoveExtra;
         car.speed = Math.max(car.speed, pc.cruiseSpeed);
       } else {
         pc.y -= overlapY;
@@ -1308,12 +1537,21 @@ export class Game {
 
     this.combo = this.comboTimer > 0 ? this.combo + 1 : 1;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
+    const bounty =
+      target.type === 'taxi'
+        ? Math.max(0, Number(config.taxiTipBonus) || 0)
+        : target.type === 'police'
+          ? Math.max(0, Number(config.policeBountyBonus) || 0)
+          : 0;
     const bonus =
-      config.hijackBonus + Math.max(0, this.combo - 1) * config.comboStep;
+      config.hijackBonus +
+      bounty +
+      Math.max(0, this.combo - 1) * config.comboStep;
     this.score += bonus;
     this.comboWindowEffective =
       config.comboWindow +
-      (target.type === 'sedan' ? config.sedanComboBonus : 0);
+      (target.type === 'sedan' ? config.sedanComboBonus : 0) +
+      (target.type === 'police' ? config.policeComboBonus : 0);
     this.comboTimer = this.comboWindowEffective;
     this.comboFlash = 1;
     this.comboFlashText =

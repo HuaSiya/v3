@@ -6,6 +6,7 @@ import { DebugUI } from './debug.js';
 import { TouchControls } from './touch.js';
 import { GestureControls } from './gesture.js';
 import { LeaderboardUI } from './leaderboard-ui.js';
+import { VehicleCodexUI } from './codex-ui.js';
 import {
   config,
   flags,
@@ -29,6 +30,7 @@ const touch = new TouchControls(game, input, audio);
 touch.setEnabled(isTouch);
 const gesture = new GestureControls(game, canvas, input, audio);
 const leaderboard = new LeaderboardUI(game);
+const codex = new VehicleCodexUI(game, renderer);
 let controlMode = getControlMode();
 touch.setMode(controlMode);
 gesture.setEnabled(isTouch && controlMode === 'gesture');
@@ -42,6 +44,7 @@ window.__renderer = renderer;
 window.__touch = touch;
 window.__gesture = gesture;
 window.__leaderboardUI = leaderboard;
+window.__codex = codex;
 
 // 操控方式选择器：只在手机的标题页 / 暂停页出现。
 const modeUI = document.createElement('div');
@@ -174,7 +177,7 @@ window.addEventListener('pointerdown', initAudio, { once: true });
 window.addEventListener('keydown', initAudio, { once: true });
 
 window.addEventListener('keydown', (event) => {
-  if (leaderboard.isOpen) return;
+  if (leaderboard.isOpen || codex.isOpen) return;
   const formTarget =
     event.target &&
     event.target.tagName &&
@@ -221,12 +224,13 @@ function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
-  const uiBlocked = debug.isOpen || leaderboard.isOpen;
+  const uiBlocked = debug.isOpen || leaderboard.isOpen || codex.isOpen;
   game.frame(dt, input, uiBlocked);
   audio.update(game, dt, uiBlocked);
   gesture.sync();
   touch.update(game, uiBlocked);
-  leaderboard.update(game, debug.isOpen);
+  leaderboard.update(game, debug.isOpen || codex.isOpen);
+  codex.update(game, debug.isOpen || leaderboard.isOpen);
   renderer.gestureSteer = input.getSteer();
   renderer.gestureSteerActive = input.touchSteerActive;
   modeUI.classList.toggle(
@@ -234,6 +238,7 @@ function frame(now) {
     isTouch &&
       !debug.isOpen &&
       !leaderboard.isOpen &&
+      !codex.isOpen &&
       (game.mode === 'title' || game.paused)
   );
   renderer.render(game);

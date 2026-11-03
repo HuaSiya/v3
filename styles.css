@@ -880,3 +880,456 @@ body {
     font-size: 11.5px;
   }
 }
+
+/* ------------------------------------------------------------ 车型图鉴 */
+
+.codex-root {
+  font-family: inherit;
+}
+
+.codex-open {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  z-index: 36;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border: 2px solid #1e2430;
+  border-radius: 999px;
+  background: #fff6e5;
+  box-shadow: 0 4px 0 rgba(30, 36, 48, 0.28);
+  color: #1e2430;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.codex-open.visible {
+  display: inline-flex;
+}
+
+.codex-open:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(30, 36, 48, 0.28);
+}
+
+.codex-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: calc(12px + env(safe-area-inset-top, 0px))
+    calc(12px + env(safe-area-inset-right, 0px))
+    calc(12px + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
+  font-family: inherit;
+}
+
+.codex-modal.open {
+  display: flex;
+}
+
+.codex-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 16, 22, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.codex-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(1040px, 100%);
+  max-height: min(88vh, 900px);
+  max-height: min(88dvh, 900px);
+  overflow: hidden;
+  border: 3px solid #1e2430;
+  border-radius: 24px;
+  background: #fff6e5;
+  box-shadow: 0 16px 0 rgba(30, 36, 48, 0.2),
+    0 24px 48px rgba(0, 0, 0, 0.35);
+  color: #1e2430;
+}
+
+.codex-stripe {
+  flex: 0 0 auto;
+  height: 7px;
+  background: linear-gradient(
+    90deg,
+    #ff6a3d 0 25%,
+    #ffd23f 25% 50%,
+    #4f9fd9 50% 75%,
+    #43aa8b 75% 100%
+  );
+}
+
+.codex-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+}
+
+.codex-heading h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.codex-sub {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.codex-close {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid #1e2430;
+  border-radius: 10px;
+  background: #f1e6d2;
+  color: #1e2430;
+  font: 900 22px/1 "Segoe UI", "Microsoft YaHei", "PingFang SC",
+    system-ui, sans-serif;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.codex-close:active {
+  transform: translateY(1px);
+  background: #ffd23f;
+}
+
+.codex-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 20px 14px;
+}
+
+.codex-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.codex-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(30, 36, 48, 0.25);
+}
+
+.codex-section h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: #1e2430;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.codex-count {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.codex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.codex-item {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid #1e2430;
+  border-radius: 16px;
+  background: #f8efdd;
+  box-shadow: 0 3px 0 rgba(30, 36, 48, 0.18);
+}
+
+.codex-item.rare {
+  background: #fff3c9;
+}
+
+.codex-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 2px solid #1e2430;
+  background: #1b242e;
+}
+
+.codex-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 0;
+}
+
+.codex-item-head h4 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.codex-tag {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1.5px solid #1e2430;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.codex-tag.common {
+  border-color: rgba(30, 36, 48, 0.35);
+  background: #fff6e5;
+  color: #6b7280;
+}
+
+.codex-tag.rare {
+  background: #ffd23f;
+  color: #1e2430;
+}
+
+.codex-role {
+  margin: 3px 12px 0;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.codex-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  padding: 9px 12px 0;
+}
+
+.codex-stats div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(30, 36, 48, 0.1);
+}
+
+.codex-stats span {
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.codex-stats b {
+  color: #1e2430;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.codex-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 12px 0;
+}
+
+.codex-lateral span {
+  color: #6b7280;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.codex-lateral b {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.codex-spawn {
+  padding: 6px 12px 0;
+  color: #6b7280;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.codex-ability {
+  margin-top: auto;
+  padding: 9px 12px 11px;
+}
+
+.codex-ability span {
+  display: block;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.codex-ability p {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.codex-foot {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 20px 12px;
+  border-top: 1px solid rgba(30, 36, 48, 0.12);
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .codex-open {
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    padding: 8px 13px;
+    font-size: 12px;
+    box-shadow: 0 3px 0 rgba(30, 36, 48, 0.25);
+  }
+
+  .codex-modal {
+    padding: calc(8px + env(safe-area-inset-top, 0px))
+      calc(8px + env(safe-area-inset-right, 0px))
+      calc(8px + env(safe-area-inset-bottom, 0px))
+      calc(8px + env(safe-area-inset-left, 0px));
+  }
+
+  .codex-card {
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-radius: 18px;
+  }
+
+  .codex-head {
+    padding: 12px 13px 8px;
+  }
+
+  .codex-heading h2 {
+    font-size: 20px;
+  }
+
+  .codex-sub {
+    font-size: 10.5px;
+  }
+
+  .codex-close {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+  }
+
+  .codex-body {
+    gap: 12px;
+    padding: 0 10px 10px;
+  }
+
+  .codex-section h3 {
+    font-size: 13px;
+  }
+
+  .codex-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+
+  .codex-item {
+    border-radius: 13px;
+  }
+
+  .codex-item-head {
+    gap: 5px;
+    padding: 8px 9px 0;
+  }
+
+  .codex-item-head h4 {
+    font-size: 14px;
+  }
+
+  .codex-tag {
+    padding: 1px 6px;
+    font-size: 8.5px;
+  }
+
+  .codex-role {
+    margin: 2px 9px 0;
+    font-size: 10px;
+  }
+
+  .codex-stats {
+    gap: 3px 7px;
+    padding: 7px 9px 0;
+  }
+
+  .codex-stats span {
+    font-size: 9px;
+  }
+
+  .codex-stats b {
+    font-size: 10.5px;
+  }
+
+  .codex-lateral {
+    padding: 6px 9px 0;
+  }
+
+  .codex-lateral span {
+    font-size: 8.5px;
+  }
+
+  .codex-lateral b {
+    font-size: 10px;
+  }
+
+  .codex-spawn {
+    padding: 5px 9px 0;
+    font-size: 8.5px;
+  }
+
+  .codex-ability {
+    padding: 7px 9px 9px;
+  }
+
+  .codex-ability p {
+    font-size: 10px;
+  }
+
+  .codex-foot {
+    padding: 7px 13px 10px;
+    font-size: 9px;
+  }
+}

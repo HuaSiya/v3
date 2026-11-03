@@ -1595,7 +1595,7 @@ export class Renderer {
     // 本体轮廓
     ctx.strokeStyle = 'rgba(30, 36, 48, 0.5)';
     ctx.lineWidth = 1.6 * u;
-    if (car.type === 'sports') {
+    if (car.type === 'sports' || car.type === 'supercar') {
       this.traceSportsBody(w, l);
       ctx.stroke();
     } else {
@@ -1607,7 +1607,7 @@ export class Renderer {
       const pulse = 0.5 + 0.5 * Math.sin(this.realTimeFor(game) * 5.5);
       ctx.strokeStyle = `rgba(255, 250, 236, ${0.7 + 0.3 * pulse})`;
       ctx.lineWidth = 2.6 * u;
-      if (car.type === 'sports') {
+      if (car.type === 'sports' || car.type === 'supercar') {
         this.traceSportsBody(w, l, 1.06, 1.06);
         ctx.stroke();
       } else {
@@ -1802,6 +1802,190 @@ export class Renderer {
       ctx.arc(-w * 0.1, l * 0.435, Math.max(1.5 * u, w * 0.045), 0, Math.PI * 2);
       ctx.arc(w * 0.1, l * 0.435, Math.max(1.5 * u, w * 0.045), 0, Math.PI * 2);
       ctx.fill();
+    } else if (car.type === 'taxi') {
+      ctx.fillStyle = body;
+      baseRR(-w * 0.5, -l * 0.5, w, l, w * 0.28);
+      ctx.fillStyle = light;
+      ctx.fillRect(-w * 0.42, -l * 0.34, w * 0.84, l * 0.05);
+      ctx.fillStyle = glass;
+      baseRR(-w * 0.36, -l * 0.17, w * 0.72, l * 0.36, w * 0.18);
+      ctx.fillStyle = glassLight;
+      ctx.fillRect(-w * 0.28, -l * 0.13, w * 0.56, l * 0.07);
+      // 出租车顶灯
+      ctx.fillStyle = '#fff6e5';
+      this.rr(-w * 0.16, -l * 0.06, w * 0.32, l * 0.12, 2 * u);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(30, 36, 48, 0.55)';
+      ctx.lineWidth = 1.4 * u;
+      ctx.stroke();
+      // 侧身格纹
+      const sq = w * 0.1;
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = i % 2 ? '#1e2430' : '#fff6e5';
+        ctx.fillRect(-w * 0.3 + i * sq, l * 0.2, sq, l * 0.05);
+      }
+      ctx.fillStyle = dark;
+      baseRR(-w * 0.3, l * 0.32, w * 0.6, l * 0.08, w * 0.08);
+    } else if (car.type === 'van') {
+      ctx.fillStyle = body;
+      baseRR(-w * 0.5, -l * 0.5, w, l, w * 0.14);
+      // 前风挡
+      ctx.fillStyle = glass;
+      baseRR(-w * 0.4, -l * 0.44, w * 0.8, l * 0.16, w * 0.08);
+      // 侧窗
+      baseRR(-w * 0.46, -l * 0.22, w * 0.1, l * 0.42, w * 0.04);
+      baseRR(w * 0.36, -l * 0.22, w * 0.1, l * 0.42, w * 0.04);
+      // 货箱分隔线
+      ctx.fillStyle = light;
+      ctx.fillRect(-w * 0.38, -l * 0.02, w * 0.76, l * 0.035);
+      ctx.fillRect(-w * 0.38, l * 0.16, w * 0.76, l * 0.035);
+      // 后门
+      ctx.fillStyle = dark;
+      baseRR(-w * 0.3, l * 0.34, w * 0.6, l * 0.1, w * 0.04);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.fillRect(-w * 0.3, -l * 0.28, w * 0.6, l * 0.04);
+    } else if (car.type === 'limo') {
+      ctx.fillStyle = body;
+      baseRR(-w * 0.5, -l * 0.5, w, l, w * 0.2);
+      ctx.fillStyle = light;
+      ctx.fillRect(-w * 0.42, -l * 0.42, w * 0.84, l * 0.035);
+      ctx.fillRect(-w * 0.42, l * 0.38, w * 0.84, l * 0.03);
+      ctx.fillStyle = glass;
+      baseRR(-w * 0.35, -l * 0.32, w * 0.7, l * 0.1, w * 0.06);
+      baseRR(-w * 0.35, -l * 0.12, w * 0.7, l * 0.16, w * 0.06);
+      baseRR(-w * 0.35, l * 0.12, w * 0.7, l * 0.1, w * 0.06);
+      // 金色腰线
+      ctx.fillStyle = 'rgba(255, 210, 63, 0.55)';
+      ctx.fillRect(-w * 0.5, -l * 0.02, w, l * 0.012);
+      ctx.fillRect(-w * 0.5, l * 0.18, w, l * 0.012);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.fillRect(-w * 0.26, -l * 0.24, w * 0.52, l * 0.07);
+    } else if (car.type === 'ambulance') {
+      ctx.fillStyle = body;
+      baseRR(-w * 0.5, -l * 0.5, w, l, w * 0.14);
+      // 前风挡
+      ctx.fillStyle = glass;
+      baseRR(-w * 0.4, -l * 0.44, w * 0.8, l * 0.14, w * 0.08);
+      // 侧窗
+      baseRR(-w * 0.46, -l * 0.24, w * 0.1, l * 0.34, w * 0.04);
+      baseRR(w * 0.36, -l * 0.24, w * 0.1, l * 0.34, w * 0.04);
+      // 红色侧条
+      ctx.fillStyle = 'rgba(214, 60, 60, 0.85)';
+      ctx.fillRect(-w * 0.5, -l * 0.08, w, l * 0.04);
+      // 车顶红十字
+      ctx.fillStyle = '#d63c3c';
+      ctx.fillRect(-w * 0.055, l * 0.02, w * 0.11, l * 0.22);
+      ctx.fillRect(-w * 0.17, l * 0.08, w * 0.34, l * 0.1);
+      // 警示灯
+      ctx.fillStyle = '#e63946';
+      this.rr(-w * 0.18, -l * 0.16, w * 0.16, l * 0.045, 2 * u);
+      ctx.fill();
+      ctx.fillStyle = '#2f6fed';
+      this.rr(w * 0.02, -l * 0.16, w * 0.16, l * 0.045, 2 * u);
+      ctx.fill();
+    } else if (car.type === 'firetruck') {
+      ctx.fillStyle = body;
+      baseRR(-w * 0.5, -l * 0.5, w, l, w * 0.1);
+      // 前风挡
+      ctx.fillStyle = glass;
+      baseRR(-w * 0.4, -l * 0.46, w * 0.8, l * 0.12, w * 0.06);
+      // 白色腰线
+      ctx.fillStyle = 'rgba(255, 246, 229, 0.92)';
+      ctx.fillRect(-w * 0.5, -l * 0.06, w, l * 0.035);
+      // 后部设备舱
+      ctx.fillStyle = dark;
+      baseRR(-w * 0.36, l * 0.18, w * 0.72, l * 0.22, w * 0.04);
+      // 云梯
+      ctx.strokeStyle = '#e8d9b5';
+      ctx.lineWidth = Math.max(1.2 * u, w * 0.025);
+      const ladderY0 = -l * 0.18;
+      const ladderY1 = l * 0.3;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * w * 0.16, ladderY0);
+        ctx.lineTo(side * w * 0.16, ladderY1);
+        ctx.stroke();
+      }
+      for (let i = 0; i <= 6; i++) {
+        const yy = ladderY0 + ((ladderY1 - ladderY0) * i) / 6;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.16, yy);
+        ctx.lineTo(w * 0.16, yy);
+        ctx.stroke();
+      }
+      // 警示灯
+      ctx.fillStyle = '#e63946';
+      this.rr(-w * 0.2, -l * 0.24, w * 0.18, l * 0.04, 2 * u);
+      ctx.fill();
+      ctx.fillStyle = '#ffd23f';
+      this.rr(w * 0.02, -l * 0.24, w * 0.18, l * 0.04, 2 * u);
+      ctx.fill();
+    } else if (car.type === 'police') {
+      ctx.fillStyle = body;
+      baseRR(-w * 0.5, -l * 0.5, w, l, w * 0.26);
+      // 白色车门/车顶
+      ctx.fillStyle = '#f4f4f0';
+      this.rr(-w * 0.46, -l * 0.06, w * 0.92, l * 0.3, w * 0.1);
+      ctx.fill();
+      // 玻璃
+      ctx.fillStyle = glass;
+      baseRR(-w * 0.36, -l * 0.2, w * 0.72, l * 0.34, w * 0.16);
+      // 警灯
+      ctx.fillStyle = '#e63946';
+      this.rr(-w * 0.2, -l * 0.08, w * 0.18, l * 0.05, 2 * u);
+      ctx.fill();
+      ctx.fillStyle = '#2f6fed';
+      this.rr(w * 0.02, -l * 0.08, w * 0.18, l * 0.05, 2 * u);
+      ctx.fill();
+      // 车头徽标
+      ctx.fillStyle = '#ffd23f';
+      ctx.beginPath();
+      ctx.arc(0, -l * 0.34, Math.max(1.4 * u, w * 0.05), 0, Math.PI * 2);
+      ctx.fill();
+    } else if (car.type === 'supercar') {
+      ctx.fillStyle = body;
+      this.traceSportsBody(w, l);
+      ctx.fill();
+      ctx.strokeStyle = shade(body, -0.3);
+      ctx.lineWidth = Math.max(1.4 * u, w * 0.026);
+      this.traceSportsBody(w * 0.97, l * 0.985);
+      ctx.stroke();
+      // 中央拉花
+      ctx.fillStyle = light;
+      ctx.fillRect(-w * 0.04, -l * 0.45, w * 0.08, l * 0.86);
+      // 座舱
+      ctx.fillStyle = glass;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.25, -l * 0.16);
+      ctx.quadraticCurveTo(0, -l * 0.22, w * 0.25, -l * 0.16);
+      ctx.lineTo(w * 0.27, l * 0.14);
+      ctx.quadraticCurveTo(0, l * 0.2, -w * 0.27, l * 0.14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = glassLight;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.2, -l * 0.12);
+      ctx.quadraticCurveTo(0, -l * 0.16, w * 0.2, -l * 0.12);
+      ctx.lineTo(w * 0.21, -l * 0.07);
+      ctx.quadraticCurveTo(0, -l * 0.11, -w * 0.21, -l * 0.07);
+      ctx.closePath();
+      ctx.fill();
+      // 大型尾翼
+      ctx.fillStyle = '#1e2430';
+      ctx.fillRect(-w * 0.28, l * 0.3, w * 0.06, l * 0.16);
+      ctx.fillRect(w * 0.22, l * 0.3, w * 0.06, l * 0.16);
+      this.rr(-w * 0.58, l * 0.43, w * 1.16, l * 0.075, 3 * u);
+      ctx.fill();
+      // 侧进气
+      ctx.fillStyle = 'rgba(28, 34, 42, 0.6)';
+      this.rr(-w * 0.47, l * 0.02, w * 0.1, l * 0.14, 2 * u);
+      ctx.fill();
+      this.rr(w * 0.37, l * 0.02, w * 0.1, l * 0.14, 2 * u);
+      ctx.fill();
+      // 尾部扩散器
+      ctx.fillStyle = 'rgba(30, 36, 48, 0.5)';
+      this.rr(-w * 0.3, l * 0.46, w * 0.6, l * 0.04, 2 * u);
+      ctx.fill();
     } else {
       // sedan
       ctx.fillStyle = body;
@@ -1817,7 +2001,7 @@ export class Renderer {
     }
 
     // 车灯
-    if (car.type === 'sports') {
+    if (car.type === 'sports' || car.type === 'supercar') {
       // 斜切大灯 / 细长尾灯
       ctx.fillStyle = 'rgba(255, 245, 190, 0.95)';
       for (const s of [-1, 1]) {
@@ -1854,6 +2038,92 @@ export class Renderer {
       ctx.fill();
       this.rr(w * 0.46, -l * 0.26, w * 0.1, l * 0.09, 2 * u);
       ctx.fill();
+    }
+  }
+
+  drawVehiclePreview(canvas, vehicle) {
+    if (!canvas || !vehicle) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = Math.min(
+      (typeof window !== 'undefined' && window.devicePixelRatio) || 1,
+      2
+    );
+    const W = 260;
+    const H = 168;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#2d3947');
+    bg.addColorStop(1, '#111820');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const glow = ctx.createRadialGradient(
+      W * 0.5,
+      H * 0.52,
+      8,
+      W * 0.5,
+      H * 0.52,
+      W * 0.55
+    );
+    glow.addColorStop(0, 'rgba(255, 214, 130, 0.2)');
+    glow.addColorStop(1, 'rgba(255, 214, 130, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 244, 224, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([10, 12]);
+    ctx.beginPath();
+    ctx.moveTo(W * 0.18, 0);
+    ctx.lineTo(W * 0.18, H);
+    ctx.moveTo(W * 0.82, 0);
+    ctx.lineTo(W * 0.82, H);
+    ctx.stroke();
+    ctx.restore();
+
+    const laneW = Math.min(
+      (H - 34) / Math.max(1, vehicle.length),
+      (W * 0.46) / Math.max(0.4, vehicle.width)
+    );
+    const w = vehicle.width * laneW;
+    const l = vehicle.length * laneW;
+    const car = {
+      type: vehicle.type,
+      color: vehicle.color,
+      w,
+      l,
+      isPlayer: false,
+      renderRot: 0,
+    };
+
+    const prevCtx = this.ctx;
+    try {
+      this.ctx = ctx;
+      ctx.save();
+      ctx.translate(W * 0.5, H * 0.5);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+      ctx.beginPath();
+      ctx.ellipse(4, l * 0.26, w * 0.58, l * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+      this.drawCarBody(car, w, l, Math.max(0.55, laneW / 65));
+      ctx.strokeStyle = 'rgba(255, 250, 236, 0.28)';
+      ctx.lineWidth = 1.2;
+      if (car.type === 'sports' || car.type === 'supercar') {
+        this.traceSportsBody(w, l);
+      } else {
+        this.rr(-w * 0.5, -l * 0.5, w, l, Math.min(w, l) * 0.26);
+      }
+      ctx.stroke();
+      ctx.restore();
+    } finally {
+      this.ctx = prevCtx;
     }
   }
 

@@ -20,6 +20,13 @@ export const DEFAULTS = {
   sportsSpeed: 7.0, // 跑车速度
   truckSpeed: 5.0, // 卡车速度
   busSpeed: 4.0, // 巴士速度
+  taxiSpeed: 6.4, // 出租车速度
+  vanSpeed: 4.8, // 面包车速度
+  limoSpeed: 5.6, // 加长车速度
+  ambulanceSpeed: 5.2, // 救护车速度
+  firetruckSpeed: 4.2, // 消防车速度
+  policeSpeed: 7.2, // 警车速度
+  supercarSpeed: 8.6, // 超级跑车速度
   aiSpeedVariance: 0.30, // AI车速浮动
 
   // 分数
@@ -27,6 +34,13 @@ export const DEFAULTS = {
   scoreSports: 15, // 跑车分/秒
   scoreTruck: 8, // 卡车分/秒
   scoreBus: 6, // 巴士分/秒
+  scoreTaxi: 12, // 出租车分/秒
+  scoreVan: 7, // 面包车分/秒
+  scoreLimo: 16, // 加长车分/秒
+  scoreAmbulance: 9, // 救护车分/秒
+  scoreFiretruck: 8, // 消防车分/秒
+  scorePolice: 13, // 警车分/秒
+  scoreSupercar: 20, // 超级跑车分/秒
   wrongWayMultiplier: 2, // 逆行分数倍率（第一档）
   wrongWayRampTime1: 3, // 连续逆行多少秒进入第二档
   wrongWayMultiplier2: 3, // 第二档倍率
@@ -45,6 +59,13 @@ export const DEFAULTS = {
   durabilitySports: 5, // 跑车耐久
   durabilityTruck: 7, // 卡车耐久
   durabilityBus: 8, // 巴士耐久
+  durabilityTaxi: 5.5, // 出租车耐久
+  durabilityVan: 7.5, // 面包车耐久
+  durabilityLimo: 9, // 加长车耐久
+  durabilityAmbulance: 9.5, // 救护车耐久
+  durabilityFiretruck: 11, // 消防车耐久
+  durabilityPolice: 6.5, // 警车耐久
+  durabilitySupercar: 4, // 超级跑车耐久
   durabilityWarnTime: 2, // 爆炸预警
   collisionDurabilityPenalty: 2, // 碰撞扣耐久
   firstCarDurability: 8, // 首辆车耐久
@@ -60,6 +81,13 @@ export const DEFAULTS = {
   widthSports: 0.60, // 跑车车宽
   widthTruck: 0.76, // 卡车车宽
   widthBus: 0.80, // 巴士车宽
+  widthTaxi: 0.71, // 出租车车宽
+  widthVan: 0.78, // 面包车车宽
+  widthLimo: 0.79, // 加长车车宽
+  widthAmbulance: 0.82, // 救护车车宽
+  widthFiretruck: 0.85, // 消防车车宽
+  widthPolice: 0.72, // 警车车宽
+  widthSupercar: 0.64, // 超级跑车车宽
 
   // 车型被动
   sedanComboBonus: 0.5, // 轿车：夺车后连击窗口额外 +0.5 秒
@@ -67,6 +95,15 @@ export const DEFAULTS = {
   truckBumpPenaltyImmune: 1, // 卡车：同向碰撞不扣耐久（1 开 / 0 关）
   truckBumpShoveExtra: 0.06, // 卡车：顶开前车的额外距离（车道宽）
   busBulletTimeBonus: 0.5, // 巴士：子弹时间额外 +0.5 秒
+  taxiTipBonus: 40, // 出租车：夺车小费额外 +40 分
+  vanBumpPenaltyFactor: 0.5, // 面包车：同向碰撞扣耐久 ×0.5
+  limoScoreBonus: 0.25, // 加长车：驾驶得分 +25%
+  ambulanceBulletTimeBonus: 1.0, // 救护车：子弹时间额外 +1 秒
+  fireBumpPenaltyFactor: 0.25, // 消防车：同向碰撞扣耐久 ×0.25
+  fireBumpShoveExtra: 0.1, // 消防车：顶开前车的额外距离（车道宽）
+  policeBountyBonus: 80, // 警车：夺车赏金额外 +80 分
+  policeComboBonus: 0.5, // 警车：夺车后连击窗口额外 +0.5 秒
+  superWrongWayBonus: 1.0, // 超级跑车：逆行倍率额外 +1
 
   // AI 跟车与拥堵控制
   aiFollowGap: 0.75, // AI 跟车时保险杠之间的最小距离（车道宽）
@@ -105,6 +142,27 @@ export const DEFAULTS = {
   lateralSpeedBus: 1.8,
   lateralAccelBus: 7,
   lateralDecelBus: 10,
+  lateralSpeedTaxi: 3.0,
+  lateralAccelTaxi: 18,
+  lateralDecelTaxi: 24,
+  lateralSpeedVan: 2.0,
+  lateralAccelVan: 9,
+  lateralDecelVan: 14,
+  lateralSpeedLimo: 2.3,
+  lateralAccelLimo: 11,
+  lateralDecelLimo: 16,
+  lateralSpeedAmbulance: 2.1,
+  lateralAccelAmbulance: 10,
+  lateralDecelAmbulance: 15,
+  lateralSpeedFiretruck: 1.7,
+  lateralAccelFiretruck: 7,
+  lateralDecelFiretruck: 11,
+  lateralSpeedPolice: 3.4,
+  lateralAccelPolice: 22,
+  lateralDecelPolice: 28,
+  lateralSpeedSupercar: 3.8,
+  lateralAccelSupercar: 28,
+  lateralDecelSupercar: 32,
 
   // 镜头与辅助
   playerScreenY: 0.74, // 玩家车辆在屏幕上的纵向位置（0~1）
@@ -141,6 +199,13 @@ export const TUNABLE_GROUPS = [
       { key: 'sportsSpeed', label: '跑车速度', min: 1, max: 12, step: 0.1 },
       { key: 'truckSpeed', label: '卡车速度', min: 1, max: 10, step: 0.1 },
       { key: 'busSpeed', label: '巴士速度', min: 1, max: 10, step: 0.1 },
+      { key: 'taxiSpeed', label: '出租车速度', min: 1, max: 10, step: 0.1 },
+      { key: 'vanSpeed', label: '面包车速度', min: 1, max: 10, step: 0.1 },
+      { key: 'limoSpeed', label: '加长车速度', min: 1, max: 10, step: 0.1 },
+      { key: 'ambulanceSpeed', label: '救护车速度', min: 1, max: 10, step: 0.1 },
+      { key: 'firetruckSpeed', label: '消防车速度', min: 1, max: 10, step: 0.1 },
+      { key: 'policeSpeed', label: '警车速度', min: 1, max: 12, step: 0.1 },
+      { key: 'supercarSpeed', label: '超级跑车速度', min: 1, max: 14, step: 0.1 },
       { key: 'aiSpeedVariance', label: 'AI 车速浮动', min: 0, max: 0.3, step: 0.01 },
     ],
   },
@@ -151,6 +216,13 @@ export const TUNABLE_GROUPS = [
       { key: 'scoreSports', label: '跑车 分/秒', min: 1, max: 60, step: 1 },
       { key: 'scoreTruck', label: '卡车 分/秒', min: 1, max: 40, step: 1 },
       { key: 'scoreBus', label: '巴士 分/秒', min: 1, max: 40, step: 1 },
+      { key: 'scoreTaxi', label: '出租车 分/秒', min: 1, max: 40, step: 1 },
+      { key: 'scoreVan', label: '面包车 分/秒', min: 1, max: 40, step: 1 },
+      { key: 'scoreLimo', label: '加长车 分/秒', min: 1, max: 60, step: 1 },
+      { key: 'scoreAmbulance', label: '救护车 分/秒', min: 1, max: 40, step: 1 },
+      { key: 'scoreFiretruck', label: '消防车 分/秒', min: 1, max: 40, step: 1 },
+      { key: 'scorePolice', label: '警车 分/秒', min: 1, max: 60, step: 1 },
+      { key: 'scoreSupercar', label: '超级跑车 分/秒', min: 1, max: 80, step: 1 },
       { key: 'wrongWayMultiplier', label: '逆行一档倍率', min: 1, max: 5, step: 0.5 },
       { key: 'hijackBonus', label: '抢车基础分', min: 0, max: 500, step: 10 },
       { key: 'comboWindow', label: '连击窗口', min: 2, max: 15, step: 0.5, unit: 's' },
@@ -177,6 +249,13 @@ export const TUNABLE_GROUPS = [
       { key: 'durabilitySports', label: '跑车耐久', min: 3, max: 40, step: 1, unit: 's' },
       { key: 'durabilityTruck', label: '卡车耐久', min: 4, max: 50, step: 1, unit: 's' },
       { key: 'durabilityBus', label: '巴士耐久', min: 4, max: 50, step: 1, unit: 's' },
+      { key: 'durabilityTaxi', label: '出租车耐久', min: 3, max: 40, step: 0.5, unit: 's' },
+      { key: 'durabilityVan', label: '面包车耐久', min: 4, max: 50, step: 0.5, unit: 's' },
+      { key: 'durabilityLimo', label: '加长车耐久', min: 4, max: 50, step: 0.5, unit: 's' },
+      { key: 'durabilityAmbulance', label: '救护车耐久', min: 4, max: 50, step: 0.5, unit: 's' },
+      { key: 'durabilityFiretruck', label: '消防车耐久', min: 4, max: 60, step: 0.5, unit: 's' },
+      { key: 'durabilityPolice', label: '警车耐久', min: 3, max: 40, step: 0.5, unit: 's' },
+      { key: 'durabilitySupercar', label: '超级跑车耐久', min: 2, max: 30, step: 0.5, unit: 's' },
       { key: 'durabilityWarnTime', label: '爆炸预警', min: 1, max: 8, step: 0.5, unit: 's' },
       { key: 'collisionDurabilityPenalty', label: '碰撞扣耐久', min: 0, max: 6, step: 0.5, unit: 's' },
       { key: 'firstCarDurability', label: '首辆车耐久', min: 4, max: 20, step: 1, unit: 's' },
@@ -198,6 +277,13 @@ export const TUNABLE_GROUPS = [
       { key: 'widthSports', label: '跑车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
       { key: 'widthTruck', label: '卡车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
       { key: 'widthBus', label: '巴士车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthTaxi', label: '出租车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthVan', label: '面包车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthLimo', label: '加长车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthAmbulance', label: '救护车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthFiretruck', label: '消防车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthPolice', label: '警车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthSupercar', label: '超级跑车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
     ],
   },
   {
@@ -208,6 +294,15 @@ export const TUNABLE_GROUPS = [
       { key: 'truckBumpPenaltyImmune', label: '卡车碰撞免耐久', min: 0, max: 1, step: 1 },
       { key: 'truckBumpShoveExtra', label: '卡车顶开距离', min: 0, max: 0.5, step: 0.01 },
       { key: 'busBulletTimeBonus', label: '巴士子弹时间', min: 0, max: 2, step: 0.1, unit: 's' },
+      { key: 'taxiTipBonus', label: '出租车夺车小费', min: 0, max: 300, step: 10 },
+      { key: 'vanBumpPenaltyFactor', label: '面包车碰撞耐久系数', min: 0, max: 1, step: 0.05 },
+      { key: 'limoScoreBonus', label: '加长车得分加成', min: 0, max: 1, step: 0.05 },
+      { key: 'ambulanceBulletTimeBonus', label: '救护车子弹时间', min: 0, max: 3, step: 0.1, unit: 's' },
+      { key: 'fireBumpPenaltyFactor', label: '消防车碰撞耐久系数', min: 0, max: 1, step: 0.05 },
+      { key: 'fireBumpShoveExtra', label: '消防车顶开距离', min: 0, max: 0.5, step: 0.01 },
+      { key: 'policeBountyBonus', label: '警车夺车赏金', min: 0, max: 300, step: 10 },
+      { key: 'policeComboBonus', label: '警车连击窗口', min: 0, max: 2, step: 0.1, unit: 's' },
+      { key: 'superWrongWayBonus', label: '超级跑车逆行倍率', min: 0, max: 2, step: 0.1, unit: '×' },
     ],
   },
   {
@@ -246,6 +341,27 @@ export const TUNABLE_GROUPS = [
       { key: 'lateralSpeedBus', label: '巴士最大横移', min: 0.5, max: 6, step: 0.1 },
       { key: 'lateralAccelBus', label: '巴士横移加速', min: 4, max: 40, step: 1 },
       { key: 'lateralDecelBus', label: '巴士松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedTaxi', label: '出租车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelTaxi', label: '出租车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelTaxi', label: '出租车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedVan', label: '面包车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelVan', label: '面包车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelVan', label: '面包车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedLimo', label: '加长车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelLimo', label: '加长车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelLimo', label: '加长车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedAmbulance', label: '救护车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelAmbulance', label: '救护车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelAmbulance', label: '救护车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedFiretruck', label: '消防车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelFiretruck', label: '消防车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelFiretruck', label: '消防车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedPolice', label: '警车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelPolice', label: '警车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelPolice', label: '警车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedSupercar', label: '超级跑车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelSupercar', label: '超级跑车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelSupercar', label: '超级跑车松开减速', min: 4, max: 50, step: 1 },
     ],
   },
   {

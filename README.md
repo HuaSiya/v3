@@ -65,6 +65,10 @@ python serve.py 8080 0.0.0.0
 - 横屏优先：横屏保留两侧 2.5D 城市；竖屏使用接近全宽的路面，并在标题页提示“横屏视野更佳”。
 - 调试时可以用 `?touch=1` 在桌面强制显示触控层。
 
+## 车型图鉴
+
+标题页和结算页左上角有“车型图鉴”按钮，打开后可以查看全部 11 种车的外形缩略图、速度 / 耐久 / 得分 / 车宽 / 横移数值、出现率和特殊能力。按 `Esc`、点关闭按钮或点击背景关闭；打开期间游戏模拟和音效会暂停。
+
 ## 规则
 
 - 开局是双向八车道：右侧四条与玩家同向，左侧四条是迎面车流。
@@ -83,9 +87,11 @@ python serve.py 8080 0.0.0.0
 - 横移手感按车型区分：跑车最灵活，轿车均衡，卡车和巴士更重；最大横移速度、加速度、松开减速在 `config.js` 的“横移操控”一组。
 - 被放弃的车会变成“幽灵车”，不再与玩家碰撞，只做演出并淡出。
 - 分数：驾驶按车型每秒加分，逆行按连续时间 ×2→×3→×4（跑车每档额外 +0.5）；抢车 `+50`，2 秒内连抢递增 `+50`；轿车夺车后连击窗口 +0.5 秒。
-- 车身宽度按车型区分：跑车 `0.60`、轿车 `0.68`、卡车 `0.76`、巴士 `0.80`（车道宽为 1），给侧向操作留出余量。
+- 车身宽度按车型区分：跑车 `0.60`、超级跑车 `0.64`、轿车 `0.68`、出租车 `0.71`、警车 `0.72`、卡车 `0.76`、面包车 `0.78`、加长车 `0.79`、巴士 `0.80`、救护车 `0.82`、消防车 `0.85`（车道宽为 1），给侧向操作留出余量。
+- 救护车、消防车、警车、超级跑车是稀有车，生成权重明显低于常规车型；超级跑车最快最脆，消防车最慢最耐撞。
 - 迎面车从车身侧面很近地掠过时触发“擦身而过”，`+40` 分；默认判定间隙为 `0.12` 车道宽，可在调参面板调整。
-- 车型被动：轿车连击窗口 +0.5 秒；跑车每档逆行倍率额外 +0.5；卡车同向碰撞不扣耐久并把前车顶开；巴士子弹时间 +0.5 秒。数值在 `config.js` 的“车型被动”一组，调参面板实时生效。
+- 常规车型被动：轿车连击窗口 +0.5 秒；跑车每档逆行倍率额外 +0.5；出租车夺车小费 +40；卡车同向碰撞不扣耐久并把前车顶开；面包车同向碰撞扣耐久 ×0.5；加长车驾驶得分 +25%；巴士子弹时间 +0.5 秒。
+- 稀有车型被动：救护车子弹时间 +1 秒；消防车同向碰撞扣耐久 ×0.25 并顶开前车；警车夺车赏金 +80、连击窗口 +0.5 秒；超级跑车逆行倍率额外 +1。数值在 `config.js` 的“车型被动”一组，调参面板实时生效。
 - 每局会抽一个悬赏目标：抢车、累计逆行、擦身而过、迎面夺车、车型收藏或同一辆车坚持；完成后立即加成分并刷新下一个目标，目标值和奖励随完成数递增。
 - 悬赏目标池、目标成长和奖励曲线在 `src/contracts.js`，可以直接改这个文件调整悬赏内容。
 - 一命制，结算画面按 `R` 或点击重开；最高分存在 localStorage。
@@ -130,12 +136,14 @@ http://localhost:8080/?bulletTimeScale=0.08&assistLevel=2&seed=123
 | `sedanComboBonus` / `sportsWrongWayBonus` | 轿车连击窗口 / 跑车逆行倍率被动 |
 | `truckBumpPenaltyImmune` / `truckBumpShoveExtra` | 卡车碰撞免耐久 / 顶开前车距离 |
 | `busBulletTimeBonus` | 巴士子弹时间被动 |
+| `taxiTipBonus` / `vanBumpPenaltyFactor` / `limoScoreBonus` | 出租车小费 / 面包车碰撞耐久系数 / 加长车得分加成 |
+| `ambulanceBulletTimeBonus` / `fireBumpPenaltyFactor` / `fireBumpShoveExtra` | 救护车子弹时间 / 消防车碰撞耐久系数 / 消防车顶开距离 |
+| `policeBountyBonus` / `policeComboBonus` / `superWrongWayBonus` | 警车赏金 / 警车连击窗口 / 超级跑车逆行倍率 |
 | `wrongWayMultiplier` / `wrongWayMultiplier2` / `wrongWayMultiplier3` | 逆行一 / 二 / 三档倍率 |
 | `wrongWayRampTime1` / `wrongWayRampTime2` | 升到二档 / 三档所需的连续逆行时间 |
 | `wrongWayHeatGrace` / `wrongWayHeatDecay` | 离开逆行区的宽限时间 / 热度衰减速度 |
 | `nearMissGap` / `nearMissScore` | 擦身而过的最大车身间隙 / 得分 |
-| `widthSedan` / `widthSports` / `widthTruck` / `widthBus` | 各车型车宽（车道宽为 1） |
-| `lateralSpeed*` / `lateralAccel*` / `lateralDecel*` | 各车型最大横移 / 横移加速 / 松开减速；`*` 为 Sedan / Sports / Truck / Bus |
+| `width*` / `lateralSpeed*` / `lateralAccel*` / `lateralDecel*` | 各车型车宽 / 最大横移 / 横移加速 / 松开减速；`*` 为 Sedan / Sports / Truck / Bus / Taxi / Van / Limo / Ambulance / Firetruck / Police / Supercar |
 
 ## 全球排行榜（Cloudflare Pages + D1）
 
@@ -207,7 +215,8 @@ src/main.js         启动、布局、主循环
 src/config.js       默认数值、URL 参数、localStorage
 src/game.js         状态机、难度与车道收窄、车流、飞扑、碰撞、计分
 src/contracts.js    悬赏目标池、目标值与奖励成长
-src/render.js       城市、车辆、小人、HUD、界面
+src/render.js       城市、车辆、小人、HUD、界面、图鉴缩略图
+src/codex-ui.js     车型图鉴弹窗、车辆卡片与筛选分组
 src/scenes.js       三套场景主题与颜色混合
 src/audio.js        WebAudio 合成音效
 src/input.js        键盘 / 指针 / 虚拟按键与模拟横移
