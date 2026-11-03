@@ -49,7 +49,7 @@ export class DebugUI {
       <div class="debug-groups"></div>
       <div class="debug-footer">
         改动实时生效并保存在 localStorage。URL 参数优先级最高，例如
-        <code>?bulletTimeScale=0.08&assistLevel=2</code>。
+        <code>?bulletTimeScale=0.08&screenShake=0</code>。
       </div>
     `;
     document.body.appendChild(root);

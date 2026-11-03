@@ -75,6 +75,7 @@ python serve.py 8080 0.0.0.0
 - 难度随时间上升：每秒为“新生成的车”增加一点基础车速（默认 `+0.04` 车道宽/秒）。已经在路上的车和玩家当前驾驶的车保持原速，所以想跟上节奏就得不断抢更新的车。
 - 游戏开始 30 秒后收窄为双向六车道，再过 30 秒收窄为双向四车道，之后车道数不再变化。收窄时外侧车辆会平滑并入相邻车道，边界会把玩家轻轻推回路面。
 - 每次收窄同步切换场景：晴日街区 → 黄昏街区 → 霓虹夜城。建筑、树木、路面、路灯和环境光都会在约 3 秒内平滑过渡。
+- 路边街区按沙盘俯视风格绘制：屋顶是主视面，只保留很矮的墙体，所有体块共用同一套倾斜方向、地面阴影和地坪。地块会随机生成住宅、公寓、写字楼、商铺、超市、体育馆、公园、停车场和工地。
 - 车身中心越过中线就进入逆行区，驾驶得分从 ×2 起；连续逆行 3 秒升到 ×3，6 秒升到 ×4（默认，可调），跑车每档额外 +0.5。
 - 离开逆行区有 0.8 秒宽限，之后热度开始衰减；宽限内回到逆行区会保留当前热度，不会直接清零。
 - 子弹时间：最长 2 秒（实时），世界流速降到 20%；耗尽后时间恢复正常，你仍然站在车顶，必须立刻飞扑。
@@ -109,7 +110,7 @@ python serve.py 8080 0.0.0.0
 URL 参数优先级最高，适合快速试数值：
 
 ```text
-http://localhost:8080/?bulletTimeScale=0.08&assistLevel=2&seed=123
+http://localhost:8080/?bulletTimeScale=0.08&screenShake=0&seed=123
 ```
 
 常用参数：
@@ -132,7 +133,6 @@ http://localhost:8080/?bulletTimeScale=0.08&assistLevel=2&seed=123
 | `sceneBlendTime` | 场景主题过渡时长（秒） |
 | `aiFollowGap` / `laneCarCap` | AI 跟车间距 / 单车道屏幕内车辆上限 |
 | `playerLaneCushion` / `playerLaneSpeedFactor` | 玩家车道生成缓冲 / 同车道新车速度上限 |
-| `assistLevel` | 飞扑辅助：0 无 / 1 高亮可抢车 / 2 轨迹与落点预览 |
 | `sedanComboBonus` / `sportsWrongWayBonus` | 轿车连击窗口 / 跑车逆行倍率被动 |
 | `truckBumpPenaltyImmune` / `truckBumpShoveExtra` | 卡车碰撞免耐久 / 顶开前车距离 |
 | `busBulletTimeBonus` | 巴士子弹时间被动 |
@@ -215,7 +215,8 @@ src/main.js         启动、布局、主循环
 src/config.js       默认数值、URL 参数、localStorage
 src/game.js         状态机、难度与车道收窄、车流、飞扑、碰撞、计分
 src/contracts.js    悬赏目标池、目标值与奖励成长
-src/render.js       城市、车辆、小人、HUD、界面、图鉴缩略图
+src/render.js       车辆、小人、HUD、界面、图鉴缩略图
+src/city.js         沙盘街区：地块、建筑类型、停车场、公园与工地
 src/codex-ui.js     车型图鉴弹窗、车辆卡片与筛选分组
 src/scenes.js       三套场景主题与颜色混合
 src/audio.js        WebAudio 合成音效

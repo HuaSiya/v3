@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { clamp, lerp, easeOutBack, hash2 } from './math.js';
-import { SCENES, mixTheme, mixColor } from './scenes.js';
+import { SCENES, mixTheme, mixColor, shadeColor } from './scenes.js';
+import { CityPainter } from './city.js';
 import {
   ROAD_MAX,
   CENTER_X,
@@ -67,28 +68,7 @@ const wrongWayRangeLabel = () => {
     : `×${formatMultiplier(base)}`;
 };
 
-function shade(hex, amount) {
-  let r;
-  let g;
-  let b;
-  if (hex.startsWith('#')) {
-    const clean = hex.replace('#', '');
-    const n = parseInt(clean, 16);
-    r = (n >> 16) & 255;
-    g = (n >> 8) & 255;
-    b = n & 255;
-  } else {
-    const m = hex.match(/rgba?\(([^)]+)\)/);
-    const parts = m ? m[1].split(',').map(Number) : [200, 200, 200];
-    r = parts[0];
-    g = parts[1];
-    b = parts[2];
-  }
-  r = clamp(Math.round(r + 255 * amount), 0, 255);
-  g = clamp(Math.round(g + 255 * amount), 0, 255);
-  b = clamp(Math.round(b + 255 * amount), 0, 255);
-  return `rgb(${r}, ${g}, ${b})`;
-}
+const shade = shadeColor;
 
 export class Renderer {
   constructor(canvas) {
@@ -115,8 +95,6 @@ export class Renderer {
     this.gestureSteer = 0;
     this.gestureSteerActive = false;
     this.safe = { top: 0, right: 0, bottom: 0, left: 0 };
-    this.assistResults = { up: null, left: null, right: null };
-    this.assistTargets = new Set();
   }
 
   setLayout(layout) {
@@ -232,18 +210,6 @@ export class Renderer {
           ? fromScene
           : mixTheme(fromScene, toScene, sceneT);
 
-    this.assistResults = { up: null, left: null, right: null };
-    this.assistTargets = new Set();
-
-    if (!isTitle && game.state === 'roof' && config.assistLevel > 0) {
-      this.assistResults.up = game.predictDive(0, 1);
-      this.assistResults.left = game.predictDive(-1, 0);
-      this.assistResults.right = game.predictDive(1, 0);
-      for (const res of Object.values(this.assistResults)) {
-        if (res && res.car) this.assistTargets.add(res.car);
-      }
-    }
-
     const shake =
       (game.shake || 0) * 6 * layout.u * config.screenShake;
     const sx = shake ? (Math.random() * 2 - 1) * shake : 0;
@@ -258,7 +224,6 @@ export class Renderer {
     this.drawLamps();
     this.drawCars(game, isTitle);
     if (!isTitle) {
-      this.drawAssist(game);
       this.drawDiveTrail(game);
       this.drawCharacter(game);
       this.drawParticleList(game.particles);
@@ -295,637 +260,9 @@ export class Renderer {
   // ---------------------------------------------------------------- 场景
 
   drawCity() {
-    const { ctx, layout } = this;
-    const { W, H, laneW, u } = layout;
-    const cam = this.cam;
-
-    ctx.fillStyle = this.theme.ground;
-    ctx.fillRect(0, 0, W, H);
-
-    const xMin = CENTER_X - W * 0.5 / laneW - 3;
-    const xMax = CENTER_X + W * 0.5 / laneW + 3;
-    const yMin = cam - layout.bottomWorld - 2;
-    const yMax = cam + layout.topWorld + 2;
-
-    // 人行道：外侧固定，内侧跟着收窄后的路沿移动，收掉的车道会变成宽人行道
-    const sw = 0.92;
-    for (const side of [-1, 1]) {
-      const outer = side < 0 ? -sw : ROAD_MAX + sw;
-      const inner = side < 0 ? this.roadMin : this.roadMax;
-      const x0 = Math.min(outer, inner);
-      const x1 = Math.max(outer, inner);
-      const sx = this.wx(x0);
-      const swidth = (x1 - x0) * laneW;
-      if (swidth <= 0) continue;
-      ctx.fillStyle = this.theme.sidewalk;
-      ctx.fillRect(sx, 0, swidth, H);
-      ctx.strokeStyle = this.theme.sidewalkJoint;
-      ctx.lineWidth = 1.5 * u;
-      const joint = 1.5;
-      let j = Math.floor(yMin / joint) * joint;
-      for (; j < yMax; j += joint) {
-        const yy = this.wy(j);
-        ctx.beginPath();
-        ctx.moveTo(sx, yy);
-        ctx.lineTo(sx + swidth, yy);
-        ctx.stroke();
-      }
-      ctx.fillStyle = this.theme.sidewalkEdge;
-      ctx.fillRect(side < 0 ? sx : sx + swidth - 2 * u, 0, 2 * u, H);
-    }
-
-    // 2.5D 斜视街区：楼型、占地和楼间距都带随机，偶尔留出小块绿地
-    const rowH = 5.2;
-    const slotW = 3.35;
-    const cols = 3;
-    const rStart = Math.floor(yMin / rowH);
-    const rEnd = Math.ceil(yMax / rowH);
-
-    for (let r = rEnd; r >= rStart; r--) {
-      for (const side of [-1, 1]) {
-        for (let col = 0; col < cols; col++) {
-          const seed = r * 13.71 + col * 7.37 + (side > 0 ? 47.3 : 0);
-          const h0 = hash2(seed, 1);
-          const h1 = hash2(seed, 2);
-          const h2 = hash2(seed, 3);
-          const h3 = hash2(seed, 4);
-          const h4 = hash2(seed, 5);
-          const h5 = hash2(seed, 6);
-          const h6 = hash2(seed, 7);
-          const h7 = hash2(seed, 8);
-
-          const cellX =
-            side < 0
-              ? -1.15 - (col + 1) * slotW
-              : ROAD_MAX + 1.15 + col * slotW;
-
-          const width = slotW - 0.78 - h3 * 0.42;
-          const maxInset = slotW - width - 0.28;
-          let xL = cellX + 0.18 + h2 * (maxInset - 0.18);
-          let xR = xL + width;
-
-          let style = 'block';
-          if (h1 < 0.2) style = 'tower';
-          else if (h1 < 0.44) style = 'block';
-          else if (h1 < 0.63) style = 'glass';
-          else if (h1 < 0.82) style = 'shop';
-          else style = 'setback';
-
-          if (style === 'tower') {
-            const nw = width * 0.74;
-            const mid = (xL + xR) * 0.5;
-            xL = mid - nw * 0.5;
-            xR = mid + nw * 0.5;
-          }
-
-          if (xR < xMin || xL > xMax) continue;
-
-          const y0 = r * rowH + 1.0 + h5 * 0.8;
-          const y1 = (r + 1) * rowH - 1.1 - h6 * 0.8;
-          const pyTop = this.wy(y1);
-          const pyBottom = this.wy(y0);
-          if (pyBottom - pyTop < 5 * u) continue;
-
-          const px0 = this.wx(xL);
-          const px1 = this.wx(xR);
-
-          // 空地：草地 + 灌木，给密集街区留出呼吸感
-          if (h0 < 0.2) {
-            this.drawLot(px0, px1, pyTop, pyBottom, seed);
-            continue;
-          }
-
-          const baseColor =
-            this.theme.buildings[
-            Math.floor(h4 * this.theme.buildings.length)
-            ];
-          const color = shade(baseColor, (h7 - 0.5) * 0.12);
-
-          if (style === 'tower') {
-            this.drawBuildingVolume(
-              px0,
-              px1,
-              pyTop,
-              pyBottom,
-              (1.6 + h2 * 1.2) * laneW,
-              side,
-              color,
-              'strips',
-              seed,
-              true
-            );
-          } else if (style === 'glass') {
-            this.drawBuildingVolume(
-              px0,
-              px1,
-              pyTop,
-              pyBottom,
-              (1.25 + h2 * 0.7) * laneW,
-              side,
-              color,
-              'bands',
-              seed,
-              true
-            );
-          } else if (style === 'shop') {
-            this.drawBuildingVolume(
-              px0,
-              px1,
-              pyTop,
-              pyBottom,
-              (0.52 + h2 * 0.3) * laneW,
-              side,
-              color,
-              'shop',
-              seed,
-              true
-            );
-          } else if (style === 'setback') {
-            const lowerH = (0.55 + h2 * 0.3) * laneW;
-            const roof = this.drawBuildingVolume(
-              px0,
-              px1,
-              pyTop,
-              pyBottom,
-              lowerH,
-              side,
-              color,
-              'block',
-              seed,
-              true
-            );
-            if (!roof) continue;
-            const uw = roof.w * (0.54 + h3 * 0.16);
-            const ux0 = roof.rx0 + (roof.w - uw) * 0.5;
-            const uyTop = roof.ry0 + roof.h * 0.1;
-            const uyBottom = roof.ry0 + roof.h * 0.86;
-            const upperColor = shade(baseColor, 0.06);
-            this.drawBuildingVolume(
-              ux0,
-              ux0 + uw,
-              uyTop,
-              uyBottom,
-              (0.72 + h2 * 0.8) * laneW,
-              side,
-              upperColor,
-              'grid',
-              seed + 31.7,
-              false
-            );
-          } else {
-            this.drawBuildingVolume(
-              px0,
-              px1,
-              pyTop,
-              pyBottom,
-              (1.05 + h2 * 0.65) * laneW,
-              side,
-              color,
-              'grid',
-              seed,
-              true
-            );
-          }
-        }
-      }
-    }
+    new CityPainter(this).draw();
   }
 
-  drawBuildingVolume(
-    px0,
-    px1,
-    pyTop,
-    pyBottom,
-    height,
-    side,
-    color,
-    wallStyle,
-    seed,
-    shadow
-  ) {
-    const { ctx, layout } = this;
-    const { laneW, u } = layout;
-    const w = px1 - px0;
-    const depth = pyBottom - pyTop;
-    if (w <= 0 || depth <= 0 || height <= 0) return null;
-
-    // 正面始终是竖直矩形；屋顶向道路一侧后退，形成真正的箱体透视。
-    const dx = -side * height * 0.38;
-    const ry1 = pyBottom - height;
-    const ry0 = pyTop - height;
-    const frontColor = shade(color, -0.16);
-    const sideColor = shade(color, -0.28);
-    const glassDark = this.theme.windowDark;
-    const glassLight = this.theme.windowGlass;
-    const litChance = this.theme.litChance;
-    const shopAccent =
-      this.theme.shopAccents[
-      Math.floor(hash2(seed, 41) * this.theme.shopAccents.length)
-      ];
-
-    if (shadow) {
-      ctx.fillStyle = 'rgba(24, 34, 32, 0.14)';
-      this.rr(px0 + 0.12 * laneW, pyTop + 0.18 * laneW, w, depth, 3 * u);
-      ctx.fill();
-    }
-
-    // 朝路侧墙：平行四边形
-    const sideX = side < 0 ? px1 : px0;
-    const sidePt = (v, t) => [
-      sideX + v * dx,
-      lerp(lerp(pyBottom, pyTop, t), lerp(ry1, ry0, t), v),
-    ];
-    const s00 = sidePt(0, 0);
-    const s01 = sidePt(0, 1);
-    const s11 = sidePt(1, 1);
-    const s10 = sidePt(1, 0);
-    ctx.fillStyle = sideColor;
-    ctx.beginPath();
-    ctx.moveTo(s00[0], s00[1]);
-    ctx.lineTo(s01[0], s01[1]);
-    ctx.lineTo(s11[0], s11[1]);
-    ctx.lineTo(s10[0], s10[1]);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(30, 36, 48, 0.2)';
-    ctx.lineWidth = 1.4 * u;
-    ctx.stroke();
-
-    // 侧墙窗户：沿侧墙透视画扁平行四边形
-    if (Math.abs(dx) > 3 * u) {
-      const sideCols = Math.max(
-        2,
-        Math.min(4, Math.round(depth / (0.45 * laneW)))
-      );
-      const sideRows = Math.max(2, Math.round(height / (0.38 * laneW)));
-      for (let j = 0; j < sideRows; j++) {
-        const v0 = (j + 0.28) / sideRows;
-        const v1 = (j + 0.72) / sideRows;
-        for (let i = 0; i < sideCols; i++) {
-          const t0 = (i + 0.25) / sideCols;
-          const t1 = (i + 0.75) / sideCols;
-          const p00 = sidePt(v0, t0);
-          const p01 = sidePt(v0, t1);
-          const p11 = sidePt(v1, t1);
-          const p10 = sidePt(v1, t0);
-          const lit = hash2(seed + j * 5.3, i + 101) < litChance;
-          ctx.fillStyle = lit ? this.theme.windowLit : glassDark;
-          ctx.beginPath();
-          ctx.moveTo(p00[0], p00[1]);
-          ctx.lineTo(p01[0], p01[1]);
-          ctx.lineTo(p11[0], p11[1]);
-          ctx.lineTo(p10[0], p10[1]);
-          ctx.closePath();
-          ctx.fill();
-        }
-      }
-    }
-
-    // 正面立面：竖直矩形，窗户不再被斜切
-    ctx.fillStyle = frontColor;
-    ctx.fillRect(px0, ry1, w, height);
-    ctx.strokeStyle = 'rgba(30, 36, 48, 0.2)';
-    ctx.lineWidth = 1.4 * u;
-    ctx.strokeRect(px0, ry1, w, height);
-
-    const wallAt = (v) => ({
-      y: lerp(pyBottom, ry1, v),
-      left: px0,
-      right: px1,
-    });
-    const quad = (a, b, inset) => {
-      ctx.beginPath();
-      ctx.moveTo(a.left + inset, a.y);
-      ctx.lineTo(a.right - inset, a.y);
-      ctx.lineTo(b.right - inset, b.y);
-      ctx.lineTo(b.left + inset, b.y);
-      ctx.closePath();
-      ctx.fill();
-    };
-
-    if (wallStyle === 'bands') {
-      // 玻璃幕墙：横向带窗
-      const rows = Math.max(3, Math.round(height / (0.26 * laneW)));
-      for (let j = 0; j < rows; j++) {
-        const v0 = 0.08 + ((j + 0.12) / rows) * 0.84;
-        const v1 = v0 + (0.84 / rows) * 0.5;
-        const a = wallAt(v0);
-        const b = wallAt(v1);
-        const inset = (a.right - a.left) * 0.05;
-        const lit = hash2(seed + j * 3.7, 21) < litChance;
-        ctx.fillStyle = lit ? this.theme.windowLit : glassDark;
-        quad(a, b, inset);
-        if (j % 2 === 0) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
-          quad(wallAt(v0), wallAt(v0 + 0.008), inset);
-        }
-      }
-    } else if (wallStyle === 'strips') {
-      // 高塔：竖向窄窗
-      const colsN = Math.max(2, Math.min(3, Math.round(w / (0.5 * laneW))));
-      const floors = Math.max(3, Math.round(height / (0.42 * laneW)));
-      for (let i = 0; i < colsN; i++) {
-        const t0 = (i + 0.28) / colsN;
-        const t1 = (i + 0.72) / colsN;
-        for (let f = 0; f < floors; f++) {
-          const v0 = 0.08 + ((f + 0.15) / floors) * 0.84;
-          const v1 = v0 + (0.84 / floors) * 0.62;
-          const a = wallAt(v0);
-          const b = wallAt(v1);
-          const ax0 = lerp(a.left, a.right, t0);
-          const ax1 = lerp(a.left, a.right, t1);
-          const bx0 = lerp(b.left, b.right, t0);
-          const bx1 = lerp(b.left, b.right, t1);
-          const lit = hash2(seed * 1.7 + i * 5.1, f + 31) < litChance;
-          ctx.fillStyle = lit ? this.theme.windowLit : glassDark;
-          ctx.beginPath();
-          ctx.moveTo(ax0, a.y);
-          ctx.lineTo(ax1, a.y);
-          ctx.lineTo(bx1, b.y);
-          ctx.lineTo(bx0, b.y);
-          ctx.closePath();
-          ctx.fill();
-        }
-      }
-    } else if (wallStyle === 'shop') {
-      // 临街小楼：大玻璃橱窗 + 条纹雨棚
-      const a = wallAt(0.06);
-      const b = wallAt(0.34);
-      ctx.fillStyle = this.theme.storefront;
-      quad(a, b, (a.right - a.left) * 0.07);
-      ctx.fillStyle = glassLight;
-      quad(wallAt(0.3), wallAt(0.36), (a.right - a.left) * 0.07);
-      ctx.fillStyle = shopAccent;
-      quad(wallAt(0.34), wallAt(0.37), (a.right - a.left) * 0.18);
-
-      const aw0 = wallAt(0.38);
-      const aw1 = wallAt(0.5);
-      const stripes = 7;
-      const awWidth = aw0.right - aw0.left;
-      for (let i = 0; i < stripes; i++) {
-        ctx.fillStyle = i % 2 ? '#f7f2e4' : shopAccent;
-        ctx.beginPath();
-        ctx.moveTo(aw0.left + (awWidth * i) / stripes, aw0.y);
-        ctx.lineTo(aw0.left + (awWidth * (i + 1)) / stripes, aw0.y);
-        const r1 = lerp(aw1.left, aw1.right, (i + 1) / stripes);
-        const l1 = lerp(aw1.left, aw1.right, i / stripes);
-        ctx.lineTo(r1, aw1.y);
-        ctx.lineTo(l1, aw1.y);
-        ctx.closePath();
-        ctx.fill();
-      }
-      const scallopR = Math.max(1.4 * u, (awWidth / stripes) * 0.16);
-      for (let i = 0; i < stripes; i++) {
-        const sx0 = aw0.left + (awWidth * (i + 0.5)) / stripes;
-        ctx.fillStyle = i % 2 ? '#f7f2e4' : shopAccent;
-        ctx.beginPath();
-        ctx.arc(sx0, aw0.y + 1 * u, scallopR, 0, Math.PI);
-        ctx.fill();
-      }
-    } else {
-      // 普通楼：规整方窗
-      const colsN = Math.max(2, Math.min(4, Math.round(w / (0.42 * laneW))));
-      const rowsN = Math.max(2, Math.round(height / (0.3 * laneW)));
-      for (let j = 0; j < rowsN; j++) {
-        const v = 0.1 + ((j + 0.5) / rowsN) * 0.8;
-        const a = wallAt(v);
-        const margin = (a.right - a.left) * 0.07;
-        const cellW = (a.right - a.left - margin * 2) / colsN;
-        for (let i = 0; i < colsN; i++) {
-          const winW = cellW * 0.52;
-          const x = a.left + margin + cellW * i + (cellW - winW) * 0.5;
-          const lit = hash2(seed + j * 3.1, i + 71) < litChance;
-          ctx.fillStyle = lit ? this.theme.windowLit : glassDark;
-          this.rr(x, a.y - 0.06 * laneW, winW, 0.1 * laneW, 1.4 * u);
-          ctx.fill();
-        }
-      }
-    }
-
-    // 屋顶：向道路一侧后退的平行四边形
-    const roofColor = shade(
-      mixColor(color, '#8a9096', 0.32),
-      this.theme.roofShade * 0.65
-    );
-    const roofPt = (uu, vv) => ({
-      x: lerp(px0, px1, uu) + dx * vv,
-      y: lerp(ry1, ry0, vv),
-    });
-    const roofQuad = (u0, v0, u1, v1) => {
-      const a = roofPt(u0, v0);
-      const b = roofPt(u1, v0);
-      const c = roofPt(u1, v1);
-      const d = roofPt(u0, v1);
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.lineTo(c.x, c.y);
-      ctx.lineTo(d.x, d.y);
-      ctx.closePath();
-    };
-
-    ctx.fillStyle = roofColor;
-    roofQuad(0, 0, 1, 1);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(30, 36, 48, 0.22)';
-    ctx.lineWidth = 2 * u;
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-    ctx.lineWidth = 1.5 * u;
-    roofQuad(0.04, 0.06, 0.96, 0.94);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(30, 36, 48, 0.07)';
-    ctx.lineWidth = 1 * u;
-    for (let i = 1; i <= 2; i++) {
-      const uu = i / 3;
-      const a = roofPt(uu, 0.04);
-      const b = roofPt(uu, 0.96);
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      const vv = i / 3;
-      const c = roofPt(0.04, vv);
-      const d = roofPt(0.96, vv);
-      ctx.beginPath();
-      ctx.moveTo(c.x, c.y);
-      ctx.lineTo(d.x, d.y);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-    roofQuad(0.04, 0.04, 0.96, 0.09);
-    ctx.fill();
-
-    // 屋檐在立面上的短投影
-    ctx.fillStyle = 'rgba(20, 28, 34, 0.12)';
-    ctx.fillRect(px0, ry1, w, 3 * u);
-
-    const dt = hash2(seed, 61);
-    const acW = 0.24 * laneW;
-    const acH = 0.18 * laneW;
-    const acPt = roofPt(0.3, 0.52);
-
-    if (wallStyle === 'strips') {
-      // 高塔天线
-      const ap = roofPt(0.5, 0.45);
-      const ah = Math.min(height * 0.7, 0.9 * laneW);
-      ctx.strokeStyle = 'rgba(42, 50, 58, 0.72)';
-      ctx.lineWidth = 2 * u;
-      ctx.beginPath();
-      ctx.moveTo(ap.x, ap.y);
-      ctx.lineTo(ap.x, ap.y - ah);
-      ctx.stroke();
-      ctx.fillStyle = '#e63946';
-      ctx.beginPath();
-      ctx.arc(ap.x, ap.y - ah, 2.2 * u, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(42, 50, 58, 0.32)';
-      ctx.lineWidth = 1 * u;
-      ctx.beginPath();
-      ctx.moveTo(ap.x, ap.y - ah * 0.72);
-      ctx.lineTo(ap.x - w * 0.14, ap.y);
-      ctx.moveTo(ap.x, ap.y - ah * 0.72);
-      ctx.lineTo(ap.x + w * 0.14, ap.y);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(50, 60, 64, 0.34)';
-      this.rr(acPt.x - acW * 0.5, acPt.y - acH * 0.5, acW, acH, 2 * u);
-      ctx.fill();
-    } else if (wallStyle === 'bands') {
-      // 玻璃楼天窗 + 设备
-      ctx.fillStyle = 'rgba(170, 218, 230, 0.55)';
-      roofQuad(0.16, 0.24, 0.5, 0.46);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 1 * u;
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(50, 60, 64, 0.3)';
-      const ac2 = roofPt(0.72, 0.56);
-      this.rr(ac2.x - acW * 0.5, ac2.y - acH * 0.5, acW, acH, 2 * u);
-      ctx.fill();
-    } else if (wallStyle === 'shop') {
-      // 屋顶招牌
-      const sp = roofPt(0.5, 0.28);
-      const sw2 = w * 0.6;
-      const sh2 = Math.min(0.36 * laneW, Math.max(8 * u, depth * 0.22));
-      const sx0 = sp.x - sw2 * 0.5;
-      const sy0 = sp.y - sh2;
-      ctx.strokeStyle = 'rgba(42, 50, 58, 0.6)';
-      ctx.lineWidth = 1.5 * u;
-      ctx.beginPath();
-      ctx.moveTo(sx0 + sw2 * 0.22, sy0 + sh2);
-      ctx.lineTo(sx0 + sw2 * 0.22, sp.y + 2 * u);
-      ctx.moveTo(sx0 + sw2 * 0.78, sy0 + sh2);
-      ctx.lineTo(sx0 + sw2 * 0.78, sp.y + 2 * u);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(246, 240, 225, 0.95)';
-      this.rr(sx0, sy0, sw2, sh2, 2 * u);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(30, 36, 48, 0.26)';
-      ctx.lineWidth = 1.2 * u;
-      ctx.stroke();
-      ctx.fillStyle = shopAccent;
-      this.rr(sx0 + sw2 * 0.1, sy0 + sh2 * 0.28, sw2 * 0.8, sh2 * 0.34, 1.5 * u);
-      ctx.fill();
-    } else {
-      // 方楼：水箱或空调
-      if (dt > 0.5) {
-        const tp = roofPt(0.66, 0.36);
-        const tw = w * 0.14;
-        const th = Math.min(height * 0.35, 0.45 * laneW);
-        ctx.fillStyle = 'rgba(20, 28, 34, 0.16)';
-        ctx.beginPath();
-        ctx.ellipse(tp.x + 2 * u, tp.y + 2 * u, tw * 0.6, tw * 0.2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#b6ab93';
-        this.rr(tp.x - tw * 0.5, tp.y - th, tw, th, 2 * u);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-        ctx.fillRect(tp.x - tw * 0.34, tp.y - th + 2 * u, tw * 0.16, th - 4 * u);
-        ctx.fillStyle = '#e8dfc8';
-        ctx.beginPath();
-        ctx.ellipse(tp.x, tp.y - th, tw * 0.5, tw * 0.16, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(70, 60, 48, 0.3)';
-        ctx.lineWidth = 1 * u;
-        ctx.beginPath();
-        ctx.moveTo(tp.x - tw * 0.5, tp.y - th * 0.62);
-        ctx.lineTo(tp.x + tw * 0.5, tp.y - th * 0.62);
-        ctx.moveTo(tp.x - tw * 0.5, tp.y - th * 0.28);
-        ctx.lineTo(tp.x + tw * 0.5, tp.y - th * 0.28);
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = 'rgba(50, 60, 64, 0.34)';
-        this.rr(
-          acPt.x - acW * 0.5,
-          acPt.y - acH * 0.5,
-          acW,
-          acH,
-          2 * u
-        );
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-        this.rr(
-          acPt.x - acW * 0.34,
-          acPt.y - acH * 0.34,
-          acW * 0.46,
-          acH * 0.42,
-          1.5 * u
-        );
-        ctx.fill();
-      }
-    }
-
-    const boxX0 = Math.min(px0, px0 + dx);
-    const boxX1 = Math.max(px1, px1 + dx);
-    return {
-      rx0: boxX0,
-      rx1: boxX1,
-      ry0,
-      ry1,
-      w: boxX1 - boxX0,
-      h: depth,
-    };
-  }
-
-  drawLot(px0, px1, pyTop, pyBottom, seed) {
-    const { ctx, layout } = this;
-    const { laneW, u } = layout;
-    const w = px1 - px0;
-    const hgt = pyBottom - pyTop;
-    if (w < 6 * u || hgt < 6 * u) return;
-
-    ctx.fillStyle = this.theme.grass;
-    this.rr(px0 + 2 * u, pyTop + 3 * u, w - 4 * u, hgt - 6 * u, 7 * u);
-    ctx.fill();
-
-    ctx.fillStyle = this.theme.path;
-    this.rr(px0 + w * 0.16, pyTop + hgt * 0.18, w * 0.68, hgt * 0.64, 6 * u);
-    ctx.fill();
-
-    const bushes = 2 + Math.floor(hash2(seed, 91) * 2);
-    for (let i = 0; i < bushes; i++) {
-      const bx = px0 + w * (0.18 + hash2(seed, 100 + i * 3) * 0.64);
-      const by = pyTop + hgt * (0.2 + hash2(seed, 101 + i * 3) * 0.6);
-      const r = (0.14 + hash2(seed, 102 + i * 3) * 0.1) * laneW;
-      ctx.fillStyle = 'rgba(24, 34, 32, 0.14)';
-      ctx.beginPath();
-      ctx.ellipse(bx + 2 * u, by + 3 * u, r * 1.1, r * 0.34, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = this.theme.tree.dark;
-      ctx.beginPath();
-      ctx.arc(bx - r * 0.35, by - r * 0.2, r * 0.62, 0, Math.PI * 2);
-      ctx.arc(bx + r * 0.34, by - r * 0.12, r * 0.56, 0, Math.PI * 2);
-      ctx.arc(bx, by - r * 0.5, r * 0.52, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = this.theme.tree.mid;
-      ctx.beginPath();
-      ctx.arc(bx - r * 0.22, by - r * 0.45, r * 0.34, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
 
   drawTrees() {
     const { ctx, layout } = this;
@@ -1548,7 +885,6 @@ export class Renderer {
       !isTitle &&
       !game.tutorialDone &&
       game.tutorialTarget === car;
-    const isAssistTarget = this.assistTargets.has(car);
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -1616,11 +952,9 @@ export class Renderer {
       }
     }
 
-    if (isTutorialTarget || isAssistTarget) {
+    if (isTutorialTarget) {
       const pulse = 0.5 + 0.5 * Math.sin(this.realTimeFor(game) * 7);
-      ctx.strokeStyle = isAssistTarget
-        ? `rgba(127, 220, 255, ${0.65 + 0.35 * pulse})`
-        : `rgba(255, 210, 63, ${0.65 + 0.35 * pulse})`;
+      ctx.strokeStyle = `rgba(255, 210, 63, ${0.65 + 0.35 * pulse})`;
       ctx.lineWidth = 3 * u;
       this.rr(-w * 0.58, -l * 0.58, w * 1.16, l * 1.16, Math.min(w, l) * 0.3);
       ctx.stroke();
@@ -3114,32 +2448,16 @@ export class Renderer {
     const chevronGap = mobile ? 14 * m : 16 * u;
     const chevronSize = mobile ? 9 * m : 11 * u;
     const dirs = [
-      { key: 'up', dx: 0, dy: -1, x: px, y: py - radius - chevronGap },
-      {
-        key: 'left',
-        dx: -1,
-        dy: 0,
-        x: px - radius - chevronGap,
-        y: py,
-      },
-      {
-        key: 'right',
-        dx: 1,
-        dy: 0,
-        x: px + radius + chevronGap,
-        y: py,
-      },
+      { dx: 0, dy: -1, x: px, y: py - radius - chevronGap },
+      { dx: -1, dy: 0, x: px - radius - chevronGap, y: py },
+      { dx: 1, dy: 0, x: px + radius + chevronGap, y: py },
     ];
     for (const d of dirs) {
-      const res = this.assistResults[d.key];
-      const valid = !!(res && res.car);
-      const pulse = 0.55 + 0.45 * Math.sin(game.realTime * 8);
-      const alpha = valid && config.assistLevel > 0 ? 0.7 + 0.3 * pulse : 0.5;
       ctx.save();
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = 0.5;
       ctx.translate(d.x, d.y);
       ctx.rotate(Math.atan2(d.dy, d.dx) + Math.PI * 0.5);
-      ctx.fillStyle = valid && config.assistLevel > 0 ? '#7fdcff' : CREAM;
+      ctx.fillStyle = CREAM;
       ctx.beginPath();
       ctx.moveTo(0, -chevronSize);
       ctx.lineTo(chevronSize * 0.73, chevronSize * 0.55);
@@ -3340,47 +2658,6 @@ export class Renderer {
     const w = ctx.measureText(str).width;
     ctx.restore();
     return w;
-  }
-
-  drawAssist(game) {
-    if (config.assistLevel === 0) return;
-    if (game.state !== 'roof' || !game.playerCar) return;
-    const { ctx, layout } = this;
-    const u = layout.u;
-
-    const list = [
-      { res: this.assistResults.up, color: '#7fdcff' },
-      { res: this.assistResults.left, color: '#7fdcff' },
-      { res: this.assistResults.right, color: '#7fdcff' },
-    ];
-
-    if (config.assistLevel >= 2) {
-      for (const { res } of list) {
-        if (!res) continue;
-        const hit = !!res.car;
-        ctx.save();
-        ctx.globalAlpha = hit ? 0.55 : 0.2;
-        ctx.setLineDash([6 * u, 6 * u]);
-        ctx.strokeStyle = hit ? '#ffd23f' : '#ffffff';
-        ctx.lineWidth = 2.4 * u;
-        ctx.beginPath();
-        res.points.forEach((p, i) => {
-          const x = this.wx(p.x);
-          const y = this.wy(p.y);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-        ctx.setLineDash([]);
-        const lx = this.wx(res.landing.x);
-        const ly = this.wy(res.landing.y);
-        ctx.fillStyle = hit ? '#ffd23f' : 'rgba(255,255,255,0.35)';
-        ctx.beginPath();
-        ctx.arc(lx, ly, 5 * u, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
   }
 
   drawPopupList(popups) {

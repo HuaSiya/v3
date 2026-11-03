@@ -2132,43 +2132,4 @@ export class Game {
     });
   }
 
-  // ---------------------------------------------------------------- 辅助预测
-
-  predictDive(dirX, dirY) {
-    if (this.state !== 'roof' || !this.playerCar) return null;
-    const car = this.playerCar;
-    const vx = dirX * config.diveLateralImpulse;
-    const vy =
-      car.cruiseSpeed + (dirY > 0 ? config.diveForwardImpulse : 0);
-    let x = car.x;
-    let y = car.y + 0.02;
-    let t = 0;
-    const points = [{ x, y }];
-    const steps = 28;
-    const stepT = config.diveTime / steps;
-    const candidates = this.cars.filter(
-      (c) => !c.ghost && !c.isPlayer && !c.destroyed
-    );
-
-    for (let i = 0; i < steps; i++) {
-      x += vx * stepT;
-      y += vy * stepT;
-      t += stepT;
-      points.push({ x, y });
-      for (const c of candidates) {
-        const predicted = {
-          x: c.x,
-          y: c.y + c.dir * c.speed * t,
-          w: c.w,
-          l: c.l,
-        };
-        if (
-          circleRectOverlap(x, y, config.diveHitRadius, predicted)
-        ) {
-          return { car: c, points, landing: { x, y } };
-        }
-      }
-    }
-    return { car: null, points, landing: { x, y } };
-  }
 }

@@ -156,6 +156,15 @@ function parseColor(input) {
   ];
 }
 
+// 明暗微调：兼容 #rrggbb 与 rgba(...)，城市和车辆共用。
+export function shadeColor(input, amount) {
+  const [r0, g0, b0] = parseColor(input);
+  const r = clamp(Math.round(r0 + 255 * amount), 0, 255);
+  const g = clamp(Math.round(g0 + 255 * amount), 0, 255);
+  const b = clamp(Math.round(b0 + 255 * amount), 0, 255);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 export function mixColor(a, b, t) {
   const ca = parseColor(a);
   const cb = parseColor(b);

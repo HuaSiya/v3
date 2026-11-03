@@ -164,9 +164,8 @@ export const DEFAULTS = {
   lateralAccelSupercar: 28,
   lateralDecelSupercar: 32,
 
-  // 镜头与辅助
+  // 镜头与画面
   playerScreenY: 0.74, // 玩家车辆在屏幕上的纵向位置（0~1）
-  assistLevel: 0, // 0 无 / 1 高亮可抢车 / 2 轨迹与落点预览
   showFps: 0, // 显示FPS
   screenShake: 1, // 屏幕震动开关
   autoStart: 0, // URL 调试用
@@ -365,9 +364,8 @@ export const TUNABLE_GROUPS = [
     ],
   },
   {
-    title: '操控与辅助',
+    title: '操控与显示',
     items: [
-      { key: 'assistLevel', label: '飞扑辅助 0/1/2', min: 0, max: 2, step: 1 },
       { key: 'screenShake', label: '画面震动', min: 0, max: 2, step: 0.1 },
       { key: 'showFps', label: '显示 FPS', min: 0, max: 1, step: 1 },
     ],
