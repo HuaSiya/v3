@@ -6,6 +6,9 @@ import {
   CENTER_X,
   LANE_COUNT,
   LANE_SPLIT,
+  typePassiveText,
+  typePassiveShort,
+  typeLateralStats,
 } from './game.js';
 
 const FONT =
@@ -44,6 +47,24 @@ const REASONS = {
     quip: '这辆车终于散架了。',
     color: '#f08a24',
   },
+};
+
+const formatMultiplier = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '1';
+  return String(Math.round(n * 100) / 100);
+};
+
+const wrongWayRangeLabel = () => {
+  const base = Number(config.wrongWayMultiplier) || 1;
+  const max = Math.max(
+    base,
+    Number(config.wrongWayMultiplier2) || base,
+    Number(config.wrongWayMultiplier3) || base
+  );
+  return max > base
+    ? `×${formatMultiplier(base)}→×${formatMultiplier(max)}`
+    : `×${formatMultiplier(base)}`;
 };
 
 function shade(hex, amount) {
@@ -1518,9 +1539,9 @@ export class Renderer {
     const alpha = car.ghost ? Math.max(0, car.ghostAlpha) : 1;
     let tilt = 0;
     if (car.isPlayer && !isTitle && game.state === 'driving') {
+      const lateral = typeLateralStats(car.type);
       tilt =
-        clamp(car.vx / Math.max(0.001, config.maxLateralSpeed), -1, 1) *
-        0.11;
+        clamp(car.vx / Math.max(0.001, lateral.speed), -1, 1) * 0.11;
     }
     const rot = car.renderRot + tilt;
     const isTutorialTarget =
@@ -2256,20 +2277,52 @@ export class Renderer {
       { weight: 700 }
     );
 
-    if (game.isWrongWay) {
-      const pulse = 0.72 + 0.28 * Math.sin(game.realTime * 6);
+    if (game.isWrongWay && game.state !== 'dead') {
+      const info = game.wrongWayInfo;
+      const badgeW = 150 * u;
+      const badgeH = 46 * u;
+      const badgeY = sy + 104 * u;
+      const pulse =
+        0.8 + 0.2 * Math.sin(game.realTime * (6 + info.tier * 3));
+      const bg = info.tier >= 2 ? GOLD : info.tier >= 1 ? '#ff8a3d' : RED;
+      const fg = info.tier >= 2 ? INK : CREAM;
       ctx.save();
       ctx.globalAlpha = pulse;
-      ctx.fillStyle = RED;
-      this.rr(sx, sy + 104 * u, 116 * u, 30 * u, 15 * u);
+      ctx.fillStyle = bg;
+      this.rr(sx, badgeY, badgeW, badgeH, 15 * u);
       ctx.fill();
       ctx.strokeStyle = INK;
       ctx.lineWidth = 2.4 * u;
       ctx.stroke();
-      this.text('逆行 ×2', sx + 58 * u, sy + 119 * u, 15 * u, CREAM, {
-        weight: 900,
-        align: 'center',
-      });
+      this.text(
+        `逆行 ×${formatMultiplier(info.multiplier)}`,
+        sx + 14 * u,
+        badgeY + 16 * u,
+        16 * u,
+        fg,
+        { weight: 900 }
+      );
+      this.text(
+        `${info.heat.toFixed(1)}s`,
+        sx + badgeW - 14 * u,
+        badgeY + 16 * u,
+        12 * u,
+        fg,
+        { weight: 800, align: 'right' }
+      );
+      const barX = sx + 14 * u;
+      const barY = badgeY + 31 * u;
+      const barW = badgeW - 28 * u;
+      const barH = 5 * u;
+      ctx.fillStyle =
+        info.tier >= 2
+          ? 'rgba(30, 36, 48, 0.25)'
+          : 'rgba(255, 246, 229, 0.28)';
+      this.rr(barX, barY, barW, barH, barH * 0.5);
+      ctx.fill();
+      ctx.fillStyle = fg;
+      this.rr(barX, barY, barW * info.progress, barH, barH * 0.5);
+      ctx.fill();
       ctx.restore();
     }
 
@@ -2278,7 +2331,9 @@ export class Renderer {
       const dw = 330 * u;
       const dx = layout.W * 0.5 - dw * 0.5;
       const dy = 18 * u;
-      this.panel(dx, dy, dw, 72 * u, { r: 16 * u });
+      const passive = typePassiveText(car.type);
+      const panelH = passive ? 78 * u : 72 * u;
+      this.panel(dx, dy, dw, panelH, { r: 16 * u });
       const frac = clamp(car.durability / Math.max(0.01, car.durabilityMax), 0, 1);
       const warn = car.durability <= config.durabilityWarnTime;
       this.text(
@@ -2320,13 +2375,19 @@ export class Renderer {
         this.rr(bx - 1.5 * u, by - 1.5 * u, bw + 3 * u, bh + 3 * u, 9 * u);
         ctx.stroke();
       }
+
+      if (passive) {
+        this.text(passive, dx + 18 * u, dy + 69 * u, 9 * u, MUTED, {
+          weight: 700,
+        });
+      }
     }
 
     // 连击
     if (game.combo > 1 && game.comboTimer > 0) {
       const cw = 170 * u;
       const cx = layout.W - cw - 20 * u;
-      const cy = 18 * u;
+      const cy = game.contract ? 118 * u : 18 * u;
       const flash = game.comboFlash;
       ctx.save();
       ctx.translate(cx + cw * 0.5, cy + 31 * u);
@@ -2351,7 +2412,12 @@ export class Renderer {
         MUTED,
         { weight: 800, align: 'right' }
       );
-      const t = clamp(game.comboTimer / Math.max(0.01, config.comboWindow), 0, 1);
+      const t = clamp(
+        game.comboTimer /
+          Math.max(0.01, game.comboWindowEffective || config.comboWindow),
+        0,
+        1
+      );
       ctx.fillStyle = 'rgba(30,36,48,0.12)';
       this.rr(cx + 16 * u, cy + 42 * u, cw - 32 * u, 8 * u, 4 * u);
       ctx.fill();
@@ -2378,6 +2444,8 @@ export class Renderer {
       ctx.restore();
     }
 
+    this.drawContractPanel(game);
+
     // 子弹时间仪表
     if (game.state === 'roof' && car) {
       this.drawBulletTimeMeter(game, car);
@@ -2387,6 +2455,7 @@ export class Renderer {
     } else {
       this.drawTutorialBanner(game);
     }
+    this.drawContractFlash(game);
   }
 
   drawMobileHud(game) {
@@ -2413,11 +2482,29 @@ export class Renderer {
       { weight: 900 }
     );
     let miniY = sy + 12 * m;
-    if (game.isWrongWay) {
-      this.text('×2', sx + sw - 9 * m, miniY, 11 * m, RED, {
-        weight: 900,
-        align: 'right',
-      });
+    if (game.isWrongWay && game.state !== 'dead') {
+      const info = game.wrongWayInfo;
+      this.text(
+        `×${formatMultiplier(info.multiplier)}`,
+        sx + sw - 9 * m,
+        miniY,
+        11 * m,
+        info.tier >= 2 ? '#b07a00' : RED,
+        {
+          weight: 900,
+          align: 'right',
+        }
+      );
+      const barX = sx + 10 * m;
+      const barY = sy + sh - 4 * m;
+      const barW = sw - 20 * m;
+      const barH = 2 * m;
+      ctx.fillStyle = 'rgba(230, 57, 70, 0.18)';
+      this.rr(barX, barY, barW, barH, barH * 0.5);
+      ctx.fill();
+      ctx.fillStyle = info.tier >= 2 ? GOLD : RED;
+      this.rr(barX, barY, barW * info.progress, barH, barH * 0.5);
+      ctx.fill();
       miniY += 14 * m;
     }
     if (game.combo > 1) {
@@ -2430,7 +2517,8 @@ export class Renderer {
     // 耐久
     if (car && !car.destroyed) {
       const dw = 146 * m;
-      const dh = 40 * m;
+      const passive = typePassiveShort(car.type);
+      const dh = (passive ? 42 : 40) * m;
       const dx = W * 0.5 - dw * 0.5;
       const dy = safe.top + 8 * m;
       this.panel(dx, dy, dw, dh, { r: 12 * m, lineWidth: 2.2 * m });
@@ -2476,6 +2564,12 @@ export class Renderer {
         this.rr(bx - 1 * m, by - 1 * m, bw + 2 * m, bh + 2 * m, 4 * m);
         ctx.stroke();
       }
+
+      if (passive) {
+        this.text(passive, dx + 10 * m, dy + 37 * m, 6.8 * m, MUTED, {
+          weight: 700,
+        });
+      }
     }
 
     // 连击/夺车大字
@@ -2494,6 +2588,8 @@ export class Renderer {
       });
       ctx.restore();
     }
+
+    this.drawMobileContractPanel(game);
 
     // 手势模式的横向舵量指示条
     if (
@@ -2527,6 +2623,171 @@ export class Renderer {
     } else {
       this.drawTutorialBanner(game);
     }
+    this.drawContractFlash(game);
+  }
+
+  contractProgressLabel(contract) {
+    if (!contract) return '';
+    const target = contract.target;
+    const targetText = Number.isInteger(target)
+      ? String(target)
+      : target.toFixed(1);
+    if (contract.def.timeBased) {
+      return `${Math.min(contract.progress, target).toFixed(1)} / ${targetText}s`;
+    }
+    return `${Math.min(Math.floor(contract.progress), target)} / ${targetText}`;
+  }
+
+  drawContractPanel(game) {
+    const contract = game.contract;
+    if (!contract) return;
+    const { ctx, layout } = this;
+    const u = layout.u;
+    const w = 240 * u;
+    const h = 92 * u;
+    const x = layout.W - w - 20 * u;
+    const y = 18 * u;
+    const flash = clamp(game.contractFlash || 0, 0, 1);
+    this.panel(x, y, w, h, {
+      r: 16 * u,
+      stroke: flash > 0 ? GOLD : INK,
+      lineWidth: (flash > 0 ? 4 : 3) * u,
+    });
+
+    ctx.fillStyle = GOLD;
+    this.rr(x + 16 * u, y + 10 * u, 4 * u, 12 * u, 2 * u);
+    ctx.fill();
+
+    this.text('悬赏目标', x + 28 * u, y + 17 * u, 11 * u, MUTED, {
+      weight: 800,
+    });
+    this.text(
+      `+${contract.reward}`,
+      x + w - 16 * u,
+      y + 17 * u,
+      14 * u,
+      ORANGE,
+      { weight: 900, align: 'right' }
+    );
+    this.text(contract.def.title, x + 16 * u, y + 40 * u, 18 * u, INK, {
+      weight: 900,
+    });
+    this.text(
+      contract.def.describe(contract.target),
+      x + 16 * u,
+      y + 58 * u,
+      11.5 * u,
+      MUTED,
+      { weight: 700 }
+    );
+    this.text(
+      this.contractProgressLabel(contract),
+      x + w - 16 * u,
+      y + 58 * u,
+      10 * u,
+      MUTED,
+      { weight: 800, align: 'right' }
+    );
+
+    const bx = x + 16 * u;
+    const by = y + 72 * u;
+    const bw = w - 32 * u;
+    const bh = 8 * u;
+    const pct = clamp(
+      contract.progress / Math.max(0.001, contract.target),
+      0,
+      1
+    );
+    ctx.fillStyle = 'rgba(30, 36, 48, 0.14)';
+    this.rr(bx, by, bw, bh, bh * 0.5);
+    ctx.fill();
+    ctx.fillStyle = flash > 0 ? GOLD : ORANGE;
+    this.rr(bx, by, bw * pct, bh, bh * 0.5);
+    ctx.fill();
+  }
+
+  drawMobileContractPanel(game) {
+    const contract = game.contract;
+    if (!contract || game.laneNoticeTimer > 0) return;
+    const { ctx, layout, safe } = this;
+    const m = this.mU;
+    const w = 150 * m;
+    const h = 62 * m;
+    const x = layout.W - w - safe.right - 8 * m;
+    const y = safe.top + 92 * m;
+    const flash = clamp(game.contractFlash || 0, 0, 1);
+    this.panel(x, y, w, h, {
+      r: 10 * m,
+      stroke: flash > 0 ? GOLD : INK,
+      lineWidth: (flash > 0 ? 3 : 2.2) * m,
+    });
+
+    this.text('悬赏', x + 8 * m, y + 10 * m, 7.5 * m, MUTED, {
+      weight: 800,
+    });
+    this.text(
+      `+${contract.reward}`,
+      x + w - 8 * m,
+      y + 10 * m,
+      9 * m,
+      ORANGE,
+      { weight: 900, align: 'right' }
+    );
+    this.text(contract.def.title, x + 8 * m, y + 25 * m, 11 * m, INK, {
+      weight: 900,
+    });
+    this.text(
+      contract.def.describe(contract.target),
+      x + 8 * m,
+      y + 37 * m,
+      8 * m,
+      MUTED,
+      { weight: 700 }
+    );
+    this.text(
+      this.contractProgressLabel(contract),
+      x + w - 8 * m,
+      y + 46 * m,
+      7 * m,
+      MUTED,
+      { weight: 800, align: 'right' }
+    );
+
+    const bx = x + 8 * m;
+    const by = y + 51 * m;
+    const bw = w - 16 * m;
+    const bh = 4 * m;
+    const pct = clamp(
+      contract.progress / Math.max(0.001, contract.target),
+      0,
+      1
+    );
+    ctx.fillStyle = 'rgba(30, 36, 48, 0.14)';
+    this.rr(bx, by, bw, bh, bh * 0.5);
+    ctx.fill();
+    ctx.fillStyle = flash > 0 ? GOLD : ORANGE;
+    this.rr(bx, by, bw * pct, bh, bh * 0.5);
+    ctx.fill();
+  }
+
+  drawContractFlash(game) {
+    if (!(game.contractFlash > 0) || !game.contractFlashText) return;
+    const { ctx, layout } = this;
+    const mobile = this.compactHud;
+    const k = mobile ? this.mU : layout.u;
+    const cf = clamp(game.contractFlash, 0, 1);
+    const scale = 1 + 0.14 * (1 - cf);
+    ctx.save();
+    ctx.globalAlpha = cf;
+    ctx.translate(layout.W * 0.5, layout.H * (mobile ? 0.46 : 0.36));
+    ctx.scale(scale, scale);
+    this.text(game.contractFlashText, 0, 0, (mobile ? 22 : 28) * k, GOLD, {
+      weight: 900,
+      align: 'center',
+      stroke: 'rgba(24, 30, 40, 0.85)',
+      strokeWidth: (mobile ? 4 : 5) * k,
+    });
+    ctx.restore();
   }
 
   drawBulletTimeMeter(game, car) {
@@ -2538,7 +2799,8 @@ export class Renderer {
     const py = this.wy(car.y);
     const radius = layout.laneW * 1.0;
     const frac = clamp(
-      game.bulletTimeRemaining / Math.max(0.01, config.bulletTimeDuration),
+      game.bulletTimeRemaining /
+        Math.max(0.01, game.bulletTimeMax || config.bulletTimeDuration),
       0,
       1
     );
@@ -3002,9 +3264,30 @@ export class Renderer {
       u
     );
 
-    this.drawBulletRow(rightX, rowY, '抢到车', '+100', GOLD, u);
-    this.drawBulletRow(rightX, rowY + rowGap, '逆行车道', '×2', ORANGE, u);
-    this.drawBulletRow(rightX, rowY + rowGap * 2, '同向碰撞', '只减速', GREEN, u);
+    this.drawBulletRow(
+      rightX,
+      rowY,
+      '抢到车',
+      `+${config.hijackBonus}`,
+      GOLD,
+      u
+    );
+    this.drawBulletRow(
+      rightX,
+      rowY + rowGap,
+      '逆行车道',
+      wrongWayRangeLabel(),
+      ORANGE,
+      u
+    );
+    this.drawBulletRow(
+      rightX,
+      rowY + rowGap * 2,
+      '同向碰撞',
+      '只减速',
+      GREEN,
+      u
+    );
 
     this.text(
       '每辆车都会散架，及时换车；迎面撞车、飞扑落空、车顶被撞都会结束',
@@ -3255,13 +3538,13 @@ export class Renderer {
         ['↔', '横向拖动  转向'],
         ['↓', '下滑  上车顶（子弹时间）'],
         ['↑', '上 / 左 / 右滑  飞扑'],
-        ['+', '抢车 +100 · 逆行 ×2 · 同向碰撞只减速'],
+        ['+', `抢车 +${config.hijackBonus} · 逆行 ${wrongWayRangeLabel()} · 同向碰撞只减速`],
       ]
       : [
         ['↔', '左侧拖动  转向'],
         ['↓', '右侧按钮  上车顶（子弹时间）'],
         ['↑', '右侧 ← / → / ↑  飞扑'],
-        ['+', '抢车 +100 · 逆行 ×2 · 同向碰撞只减速'],
+        ['+', `抢车 +${config.hijackBonus} · 逆行 ${wrongWayRangeLabel()} · 同向碰撞只减速`],
       ];
     const startY = y + 142 * m;
     lines.forEach(([glyph, text], i) => {

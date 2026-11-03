@@ -5,7 +5,7 @@ cd /d "%~dp0"
 where python >nul 2>nul
 if %errorlevel%==0 (
   echo 正在启动本地服务器 http://localhost:8080 ...
-  start "抢车狂人 - 本地服务器" cmd /c "python serve.py 8080"
+  start "侠盗飞车 - 本地服务器" cmd /c "python serve.py 8080"
   timeout /t 1 /nobreak >nul
   start "" "http://localhost:8080"
   exit /b 0
@@ -14,7 +14,7 @@ if %errorlevel%==0 (
 where node >nul 2>nul
 if %errorlevel%==0 (
   echo 正在启动本地服务器 http://localhost:8080 ...
-  start "抢车狂人 - 本地服务器" cmd /c "npx --yes serve -l 8080 ."
+  start "侠盗飞车 - 本地服务器" cmd /c "npx --yes serve -l 8080 ."
   timeout /t 2 /nobreak >nul
   start "" "http://localhost:8080"
   exit /b 0

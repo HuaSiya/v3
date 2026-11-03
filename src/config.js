@@ -27,10 +27,18 @@ export const DEFAULTS = {
   scoreSports: 15, // 跑车分/秒
   scoreTruck: 8, // 卡车分/秒
   scoreBus: 6, // 巴士分/秒
-  wrongWayMultiplier: 2, // 逆行分数倍率
+  wrongWayMultiplier: 2, // 逆行分数倍率（第一档）
+  wrongWayRampTime1: 3, // 连续逆行多少秒进入第二档
+  wrongWayMultiplier2: 3, // 第二档倍率
+  wrongWayRampTime2: 6, // 连续逆行多少秒进入第三档
+  wrongWayMultiplier3: 4, // 第三档倍率
+  wrongWayHeatGrace: 0.8, // 离开逆行区后保留热度的宽限时间（秒）
+  wrongWayHeatDecay: 1.5, // 宽限结束后热度衰减速度（秒/秒）
   hijackBonus: 50, // 抢车基础分
   comboWindow: 2, // 连击窗口（秒）
   comboStep: 50, // 连击递增分数
+  nearMissGap: 0.12, // 擦身而过：两车车身边缘的最大间隙（车道宽）
+  nearMissScore: 40, // 擦身而过得分
 
   // 耐久 / 爆炸（秒）
   durabilitySedan: 6, // 轿车耐久
@@ -46,6 +54,19 @@ export const DEFAULTS = {
   bumpSlowTime: 0.5, // 减速持续时间（秒）
   bumpShoveFactor: 1.15, // 被追尾推离距离
   bumpCooldown: 0.4, // 碰撞反馈时间
+
+  // 车型尺寸（单位：车道宽；车道本身为 1，车身留出侧向余量）
+  widthSedan: 0.68, // 轿车车宽
+  widthSports: 0.60, // 跑车车宽
+  widthTruck: 0.76, // 卡车车宽
+  widthBus: 0.80, // 巴士车宽
+
+  // 车型被动
+  sedanComboBonus: 0.5, // 轿车：夺车后连击窗口额外 +0.5 秒
+  sportsWrongWayBonus: 0.5, // 跑车：逆行倍率额外 +0.5
+  truckBumpPenaltyImmune: 1, // 卡车：同向碰撞不扣耐久（1 开 / 0 关）
+  truckBumpShoveExtra: 0.06, // 卡车：顶开前车的额外距离（车道宽）
+  busBulletTimeBonus: 0.5, // 巴士：子弹时间额外 +0.5 秒
 
   // AI 跟车与拥堵控制
   aiFollowGap: 0.75, // AI 跟车时保险杠之间的最小距离（车道宽）
@@ -71,10 +92,19 @@ export const DEFAULTS = {
   opportunityRadiusY: 7, //
   opportunityMinCars: 2, // 
 
-  // 操控
-  maxLateralSpeed: 2.8, // 最大横移速度
-  lateralAccel: 16, // 横移加速度
-  lateralDecel: 22, // 横移松开减速
+  // 横移操控（每种车不同；单位：车道宽/秒、车道宽/秒²）
+  lateralSpeedSedan: 2.8,
+  lateralAccelSedan: 16,
+  lateralDecelSedan: 22,
+  lateralSpeedSports: 3.6,
+  lateralAccelSports: 26,
+  lateralDecelSports: 30,
+  lateralSpeedTruck: 2.2,
+  lateralAccelTruck: 10,
+  lateralDecelTruck: 14,
+  lateralSpeedBus: 1.8,
+  lateralAccelBus: 7,
+  lateralDecelBus: 10,
 
   // 镜头与辅助
   playerScreenY: 0.74, // 玩家车辆在屏幕上的纵向位置（0~1）
@@ -121,10 +151,23 @@ export const TUNABLE_GROUPS = [
       { key: 'scoreSports', label: '跑车 分/秒', min: 1, max: 60, step: 1 },
       { key: 'scoreTruck', label: '卡车 分/秒', min: 1, max: 40, step: 1 },
       { key: 'scoreBus', label: '巴士 分/秒', min: 1, max: 40, step: 1 },
-      { key: 'wrongWayMultiplier', label: '逆行倍率', min: 1, max: 5, step: 0.5 },
+      { key: 'wrongWayMultiplier', label: '逆行一档倍率', min: 1, max: 5, step: 0.5 },
       { key: 'hijackBonus', label: '抢车基础分', min: 0, max: 500, step: 10 },
       { key: 'comboWindow', label: '连击窗口', min: 2, max: 15, step: 0.5, unit: 's' },
       { key: 'comboStep', label: '连击递增', min: 0, max: 200, step: 10 },
+      { key: 'nearMissGap', label: '擦身间隙', min: 0.02, max: 0.4, step: 0.01, unit: '车道' },
+      { key: 'nearMissScore', label: '擦身得分', min: 0, max: 300, step: 10 },
+    ],
+  },
+  {
+    title: '逆行风险梯度',
+    items: [
+      { key: 'wrongWayRampTime1', label: '升到二档时间', min: 0, max: 15, step: 0.5, unit: 's' },
+      { key: 'wrongWayMultiplier2', label: '二档倍率', min: 1, max: 8, step: 0.1, unit: '×' },
+      { key: 'wrongWayRampTime2', label: '升到三档时间', min: 0, max: 30, step: 0.5, unit: 's' },
+      { key: 'wrongWayMultiplier3', label: '三档倍率', min: 1, max: 10, step: 0.1, unit: '×' },
+      { key: 'wrongWayHeatGrace', label: '离区宽限', min: 0, max: 3, step: 0.1, unit: 's' },
+      { key: 'wrongWayHeatDecay', label: '热度衰减', min: 0, max: 5, step: 0.1, unit: '/s' },
     ],
   },
   {
@@ -149,6 +192,25 @@ export const TUNABLE_GROUPS = [
     ],
   },
   {
+    title: '车型尺寸',
+    items: [
+      { key: 'widthSedan', label: '轿车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthSports', label: '跑车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthTruck', label: '卡车车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+      { key: 'widthBus', label: '巴士车宽', min: 0.4, max: 0.95, step: 0.01, unit: '车道' },
+    ],
+  },
+  {
+    title: '车型被动',
+    items: [
+      { key: 'sedanComboBonus', label: '轿车连击窗口', min: 0, max: 2, step: 0.1, unit: 's' },
+      { key: 'sportsWrongWayBonus', label: '跑车逆行倍率', min: 0, max: 2, step: 0.1, unit: '×' },
+      { key: 'truckBumpPenaltyImmune', label: '卡车碰撞免耐久', min: 0, max: 1, step: 1 },
+      { key: 'truckBumpShoveExtra', label: '卡车顶开距离', min: 0, max: 0.5, step: 0.01 },
+      { key: 'busBulletTimeBonus', label: '巴士子弹时间', min: 0, max: 2, step: 0.1, unit: 's' },
+    ],
+  },
+  {
     title: '车流与难度',
     items: [
       { key: 'aiFollowGap', label: 'AI 跟车间距', min: 0.1, max: 2, step: 0.05 },
@@ -170,11 +232,25 @@ export const TUNABLE_GROUPS = [
     ],
   },
   {
+    title: '横移操控',
+    items: [
+      { key: 'lateralSpeedSedan', label: '轿车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelSedan', label: '轿车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelSedan', label: '轿车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedSports', label: '跑车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelSports', label: '跑车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelSports', label: '跑车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedTruck', label: '卡车最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelTruck', label: '卡车横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelTruck', label: '卡车松开减速', min: 4, max: 50, step: 1 },
+      { key: 'lateralSpeedBus', label: '巴士最大横移', min: 0.5, max: 6, step: 0.1 },
+      { key: 'lateralAccelBus', label: '巴士横移加速', min: 4, max: 40, step: 1 },
+      { key: 'lateralDecelBus', label: '巴士松开减速', min: 4, max: 50, step: 1 },
+    ],
+  },
+  {
     title: '操控与辅助',
     items: [
-      { key: 'maxLateralSpeed', label: '最大横移速度', min: 0.5, max: 6, step: 0.1 },
-      { key: 'lateralAccel', label: '横移加速度', min: 4, max: 40, step: 1 },
-      { key: 'lateralDecel', label: '松开减速', min: 4, max: 50, step: 1 },
       { key: 'assistLevel', label: '飞扑辅助 0/1/2', min: 0, max: 2, step: 1 },
       { key: 'screenShake', label: '画面震动', min: 0, max: 2, step: 0.1 },
       { key: 'showFps', label: '显示 FPS', min: 0, max: 1, step: 1 },

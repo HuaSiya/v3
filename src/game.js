@@ -8,6 +8,11 @@ import {
 } from './config.js';
 import { SCENES } from './scenes.js';
 import {
+  CONTRACTS,
+  contractTarget,
+  contractReward,
+} from './contracts.js';
+import {
   clamp,
   lerp,
   damp,
@@ -47,11 +52,42 @@ const TYPE_DUR_KEY = {
 };
 const TYPE_NAME = { sedan: '轿车', sports: '跑车', truck: '卡车', bus: '巴士' };
 const TYPE_SIZE = {
-  sedan: { w: 0.76, l: 1.42 },
-  sports: { w: 0.74, l: 1.32 },
-  truck: { w: 0.84, l: 1.98 },
-  bus: { w: 0.86, l: 2.55 },
+  // w 只是配置缺失时的兜底；实际车宽读取 config.widthXxx。
+  // 车道宽为 1，车身只占 0.60~0.80，给擦身而过留出侧向余量。
+  sedan: { w: 0.68, l: 1.42 },
+  sports: { w: 0.60, l: 1.32 },
+  truck: { w: 0.76, l: 1.98 },
+  bus: { w: 0.80, l: 2.55 },
 };
+const TYPE_WIDTH_KEY = {
+  sedan: 'widthSedan',
+  sports: 'widthSports',
+  truck: 'widthTruck',
+  bus: 'widthBus',
+};
+const TYPE_LATERAL_KEY = {
+  sedan: {
+    speed: 'lateralSpeedSedan',
+    accel: 'lateralAccelSedan',
+    decel: 'lateralDecelSedan',
+  },
+  sports: {
+    speed: 'lateralSpeedSports',
+    accel: 'lateralAccelSports',
+    decel: 'lateralDecelSports',
+  },
+  truck: {
+    speed: 'lateralSpeedTruck',
+    accel: 'lateralAccelTruck',
+    decel: 'lateralDecelTruck',
+  },
+  bus: {
+    speed: 'lateralSpeedBus',
+    accel: 'lateralAccelBus',
+    decel: 'lateralDecelBus',
+  },
+};
+const DEFAULT_LATERAL = { speed: 2.8, accel: 16, decel: 22 };
 const TYPE_WEIGHTS = [
   ['sedan', 0.42],
   ['truck', 0.26],
@@ -76,8 +112,83 @@ const typeSpeed = (type) => config[TYPE_SPEED_KEY[type]];
 const typeScore = (type) => config[TYPE_SCORE_KEY[type]];
 const typeDurability = (type) => config[TYPE_DUR_KEY[type]];
 const typeName = (type) => TYPE_NAME[type];
-const typeW = (type) => TYPE_SIZE[type].w;
+const typeW = (type) => {
+  const value = Number(config[TYPE_WIDTH_KEY[type]]);
+  return Number.isFinite(value)
+    ? clamp(value, 0.4, 0.95)
+    : TYPE_SIZE[type].w;
+};
 const typeL = (type) => TYPE_SIZE[type].l;
+
+export function typeLateralStats(type) {
+  const keys = TYPE_LATERAL_KEY[type] || TYPE_LATERAL_KEY.sedan;
+  const speed = Number(config[keys.speed]);
+  const accel = Number(config[keys.accel]);
+  const decel = Number(config[keys.decel]);
+  return {
+    speed: Number.isFinite(speed)
+      ? Math.max(0.1, speed)
+      : DEFAULT_LATERAL.speed,
+    accel: Number.isFinite(accel)
+      ? Math.max(0.1, accel)
+      : DEFAULT_LATERAL.accel,
+    decel: Number.isFinite(decel)
+      ? Math.max(0.1, decel)
+      : DEFAULT_LATERAL.decel,
+  };
+}
+
+const formatTraitValue = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return String(Math.round(n * 100) / 100);
+};
+
+export function typePassiveText(type) {
+  switch (type) {
+    case 'sedan':
+      return config.sedanComboBonus > 0
+        ? `连击窗口 +${formatTraitValue(config.sedanComboBonus)}s`
+        : '';
+    case 'sports':
+      return config.sportsWrongWayBonus > 0
+        ? `逆行倍率 +${formatTraitValue(config.sportsWrongWayBonus)}×`
+        : '';
+    case 'truck':
+      if (config.truckBumpPenaltyImmune > 0) {
+        return '同向碰撞不扣耐久，顶开前车';
+      }
+      return config.truckBumpShoveExtra > 0 ? '同向碰撞顶开前车' : '';
+    case 'bus':
+      return config.busBulletTimeBonus > 0
+        ? `子弹时间 +${formatTraitValue(config.busBulletTimeBonus)}s`
+        : '';
+    default:
+      return '';
+  }
+}
+
+export function typePassiveShort(type) {
+  switch (type) {
+    case 'sedan':
+      return config.sedanComboBonus > 0
+        ? `连击+${formatTraitValue(config.sedanComboBonus)}s`
+        : '';
+    case 'sports':
+      return config.sportsWrongWayBonus > 0
+        ? `逆行+${formatTraitValue(config.sportsWrongWayBonus)}×`
+        : '';
+    case 'truck':
+      if (config.truckBumpPenaltyImmune > 0) return '碰撞免伤';
+      return config.truckBumpShoveExtra > 0 ? '顶开前车' : '';
+    case 'bus':
+      return config.busBulletTimeBonus > 0
+        ? `弹时+${formatTraitValue(config.busBulletTimeBonus)}s`
+        : '';
+    default:
+      return '';
+  }
+}
 
 let carIdCounter = 0;
 
@@ -139,6 +250,8 @@ function makeCar(type, lane, y, dir, opts = {}) {
     bumpBoostSpeed: 0,
     flip: null,
     renderRot: dir === 1 ? 0 : Math.PI,
+    nearMissRelY: null,
+    nearMissHandled: false,
   };
 }
 
@@ -157,6 +270,19 @@ export class Game {
     this.realTime = 0;
     this.timeScale = 1;
     this.state = 'driving'; // driving | roof | diving | hijack | dead
+    this.wrongWayHeat = 0;
+    this.wrongWayGrace = 0;
+    this.lastWrongWayTier = 0;
+    this.nearMissPlayerCar = null;
+    this.nearMissCount = 0;
+    this.oncomingHijackCount = 0;
+    this.wrongWayTime = 0;
+    this.sameCarTime = 0;
+    this.contract = null;
+    this.contractsCompleted = 0;
+    this.contractTypes = new Set();
+    this.contractFlash = 0;
+    this.contractFlashText = '';
     this.bestScore = getBestScore();
     this.tutorialDone = getTutorialDone();
     this.acc = 0;
@@ -265,6 +391,7 @@ export class Game {
     this.score = 0;
     this.combo = 0;
     this.comboTimer = 0;
+    this.comboWindowEffective = config.comboWindow;
     this.maxCombo = 0;
     this.hijackCount = 0;
     this.cars = [];
@@ -286,6 +413,19 @@ export class Game {
     this.comboFlashText = '';
     this.wrongWayFlash = 0;
     this.wasWrongWay = false;
+    this.wrongWayHeat = 0;
+    this.wrongWayGrace = 0;
+    this.lastWrongWayTier = 0;
+    this.nearMissPlayerCar = null;
+    this.nearMissCount = 0;
+    this.oncomingHijackCount = 0;
+    this.wrongWayTime = 0;
+    this.sameCarTime = 0;
+    this.contract = null;
+    this.contractsCompleted = 0;
+    this.contractTypes = new Set();
+    this.contractFlash = 0;
+    this.contractFlashText = '';
     this.escapeTimer = 0;
     this.escapeMax = 0;
     this.tutorialTime = 0;
@@ -320,6 +460,7 @@ export class Game {
       ? flags.seed
       : (Math.random() * 1e9) | 0;
     this.rng = mulberry32(this.seed);
+    this.contractRng = mulberry32((this.seed ^ 0x9e3779b9) >>> 0);
 
     const tutorial = !this.tutorialDone;
     const dur = tutorial ? config.firstCarDurability : typeDurability('sedan');
@@ -338,6 +479,7 @@ export class Game {
     this.cars.push(this.playerCar);
 
     this.spawnInitialTraffic(tutorial);
+    this.startNextContract();
     this.audio.startRun();
   }
 
@@ -633,6 +775,7 @@ export class Game {
     if (this.escapeTimer > 0) {
       this.escapeTimer = Math.max(0, this.escapeTimer - realStep);
     }
+    this.updateWrongWayHeat(dt);
 
     switch (this.state) {
       case 'driving':
@@ -654,6 +797,11 @@ export class Game {
     this.updateAICars(dt, realStep);
     this.updateGhosts(dt, realStep);
     this.resolveCollisions(dt);
+    this.updateNearMisses();
+    if (this.playerCar && this.state !== 'diving' && this.state !== 'dead') {
+      this.sameCarTime += dt;
+    }
+    this.updateContract();
 
     if (this.state === 'diving' && this.diveTimer >= config.diveTime) {
       this.die('dive_miss');
@@ -673,7 +821,9 @@ export class Game {
     if (this.state !== 'driving' || !this.playerCar) return;
     const car = this.playerCar;
     this.state = 'roof';
-    this.bulletTimeMax = config.bulletTimeDuration;
+    const bulletBonus =
+      car.type === 'bus' ? config.busBulletTimeBonus : 0;
+    this.bulletTimeMax = config.bulletTimeDuration + bulletBonus;
     this.bulletTimeRemaining = this.bulletTimeMax;
     this.btEmptyNotified = false;
     car.vx = 0;
@@ -707,6 +857,7 @@ export class Game {
     car.ghostTime = 0;
     car.ghostAlpha = 1;
     this.playerCar = null;
+    this.sameCarTime = 0;
     this.wasWrongWay = false;
     this.timeScale = Math.max(this.timeScale, 0.6);
     this.audio.dive();
@@ -718,9 +869,10 @@ export class Game {
     if (!car) return;
 
     const steer = input.getSteer();
-    const targetVx = steer * config.maxLateralSpeed;
+    const lateral = typeLateralStats(car.type);
+    const targetVx = steer * lateral.speed;
     const accel =
-      Math.abs(steer) > 0.08 ? config.lateralAccel : config.lateralDecel;
+      Math.abs(steer) > 0.08 ? lateral.accel : lateral.decel;
     car.vx = approach(car.vx, targetVx, accel * dt);
     car.x = clamp(
       car.x + car.vx * dt,
@@ -746,7 +898,7 @@ export class Game {
       return;
     }
 
-    const mult = this.isWrongWay ? config.wrongWayMultiplier : 1;
+    const mult = this.isWrongWay ? this.wrongWayMultiplier : 1;
     this.score += typeScore(car.type) * mult * dt;
 
     if (this.comboTimer > 0) {
@@ -756,7 +908,7 @@ export class Game {
 
     const wrongWay = this.isWrongWay;
     if (wrongWay && !this.wasWrongWay) {
-      // 顶部已经常驻“逆行 ×2”徽章，这里只做红晕和提示音，避免文字重叠。
+      // 顶部已经常驻逆行倍率徽章，这里只做红晕和提示音，避免文字重叠。
       this.wrongWayFlash = 1;
       this.audio.wrongWay();
     }
@@ -874,6 +1026,88 @@ export class Game {
     return !!this.playerCar && this.playerCar.x < CENTER_X;
   }
 
+  wrongWayTier() {
+    const t1 = Math.max(0, Number(config.wrongWayRampTime1) || 0);
+    const t2 = Math.max(t1, Number(config.wrongWayRampTime2) || 0);
+    // 热度按 dt 累加，6 秒可能是 5.999999…；留一点容差，避免卡在上一档。
+    const eps = 1e-6;
+    if (this.wrongWayHeat >= t2 - eps) return 2;
+    if (this.wrongWayHeat >= t1 - eps) return 1;
+    return 0;
+  }
+
+  wrongWayMultiplierForTier(tier) {
+    if (tier === 2) return config.wrongWayMultiplier3;
+    if (tier === 1) return config.wrongWayMultiplier2;
+    return config.wrongWayMultiplier;
+  }
+
+  get wrongWayTierMultiplier() {
+    return this.wrongWayMultiplierForTier(this.wrongWayTier());
+  }
+
+  get wrongWayMultiplier() {
+    const bonus =
+      this.playerCar && this.playerCar.type === 'sports'
+        ? config.sportsWrongWayBonus
+        : 0;
+    return this.wrongWayTierMultiplier + bonus;
+  }
+
+  get wrongWayInfo() {
+    const t1 = Math.max(0, Number(config.wrongWayRampTime1) || 0);
+    const t2 = Math.max(t1, Number(config.wrongWayRampTime2) || 0);
+    const tier = this.wrongWayTier();
+    const tierMultiplier = this.wrongWayMultiplierForTier(tier);
+    const bonus =
+      this.playerCar && this.playerCar.type === 'sports'
+        ? config.sportsWrongWayBonus
+        : 0;
+    let progress = 1;
+    if (tier === 0) {
+      progress = t1 > 0 ? clamp(this.wrongWayHeat / t1, 0, 1) : 1;
+    } else if (tier === 1) {
+      progress =
+        t2 > t1
+          ? clamp((this.wrongWayHeat - t1) / (t2 - t1), 0, 1)
+          : 1;
+    }
+    return {
+      tier,
+      heat: this.wrongWayHeat,
+      multiplier: tierMultiplier + bonus,
+      tierMultiplier,
+      progress,
+      nextTime: tier === 0 ? t1 : tier === 1 ? t2 : null,
+    };
+  }
+
+  updateWrongWayHeat(dt) {
+    if (this.state === 'dead') return;
+
+    const wrong = !!this.playerCar && this.playerCar.x < CENTER_X;
+    const grace = Math.max(0, Number(config.wrongWayHeatGrace) || 0);
+    const decay = Math.max(0, Number(config.wrongWayHeatDecay) || 0);
+
+    if (wrong) {
+      this.wrongWayHeat += dt;
+      this.wrongWayTime += dt;
+      this.wrongWayGrace = grace;
+    } else {
+      this.wrongWayGrace = Math.max(0, this.wrongWayGrace - dt);
+      if (this.wrongWayGrace <= 0) {
+        this.wrongWayHeat = Math.max(0, this.wrongWayHeat - decay * dt);
+      }
+    }
+
+    const tier = this.wrongWayTier();
+    if (wrong && tier > this.lastWrongWayTier) {
+      this.wrongWayFlash = Math.max(this.wrongWayFlash, 0.8);
+      this.audio.wrongWayTier(tier);
+    }
+    this.lastWrongWayTier = tier;
+  }
+
   // ---------------------------------------------------------------- 碰撞
 
   resolveCollisions(dt) {
@@ -919,13 +1153,18 @@ export class Game {
     const overlapY = (pc.l + car.l) * 0.5 - Math.abs(dy);
     if (overlapX <= 0 || overlapY <= 0) return;
 
+    const truck = pc.type === 'truck';
+    const truckImmune = truck && config.truckBumpPenaltyImmune > 0;
+
     if (pc.bumpFxCooldown <= 0) {
       pc.bumpFxCooldown = config.bumpCooldown;
-      // 同向碰撞本身不致死：耐久最低只扣到 0.4s，保证不会因为一次碰撞直接爆炸。
-      pc.durability = Math.max(
-        0.4,
-        pc.durability - config.collisionDurabilityPenalty
-      );
+      if (!truckImmune) {
+        // 同向碰撞本身不致死：耐久最低只扣到 0.4s，保证不会因为一次碰撞直接爆炸。
+        pc.durability = Math.max(
+          0.4,
+          pc.durability - config.collisionDurabilityPenalty
+        );
+      }
       this.shake = Math.max(this.shake, 0.8 * config.screenShake);
       this.addBumpFx((pc.x + car.x) * 0.5, (pc.y + car.y) * 0.5);
       this.audio.bump();
@@ -938,6 +1177,11 @@ export class Game {
         pc.bumpBoostTimer = Math.max(pc.bumpBoostTimer, config.bumpSlowTime);
         pc.bumpBoostSpeed =
           Math.max(pc.cruiseSpeed, car.speed) * config.bumpShoveFactor;
+      } else if (truck) {
+        // 卡车被动：追尾同向车时把对方顶开，自己不减速；给被顶车一个临时速度，
+        // 避免两车下一帧又贴在一起。
+        car.y += overlapY + config.truckBumpShoveExtra;
+        car.speed = Math.max(car.speed, pc.cruiseSpeed);
       } else {
         pc.y -= overlapY;
         pc.bumpSlowTimer = Math.max(pc.bumpSlowTimer, config.bumpSlowTime);
@@ -957,14 +1201,60 @@ export class Game {
     }
   }
 
+  updateNearMisses() {
+    const pc = this.playerCar;
+
+    // 换车/飞扑时重建参考系，避免跨越不同车辆的相对位置造成误判。
+    if (pc !== this.nearMissPlayerCar) {
+      this.nearMissPlayerCar = pc;
+      for (const car of this.cars) {
+        if (car.dir === -1) car.nearMissRelY = null;
+      }
+      return;
+    }
+
+    for (const car of this.cars) {
+      if (car.ghost || car.isPlayer || car.destroyed || car.dir !== -1) {
+        continue;
+      }
+
+      const relY = pc ? car.y - pc.y : null;
+      const prevRelY = car.nearMissRelY;
+      car.nearMissRelY = relY;
+
+      if (!pc || this.state !== 'driving' || car.nearMissHandled) continue;
+      if (prevRelY == null || prevRelY <= 0 || relY > 0) continue;
+
+      car.nearMissHandled = true;
+      const gap = Math.abs(car.x - pc.x) - (car.w + pc.w) * 0.5;
+      if (gap < 0 || gap > config.nearMissGap) continue;
+
+      this.nearMissCount++;
+      const bonus = Math.max(0, Number(config.nearMissScore) || 0);
+      if (bonus <= 0) continue;
+      this.score += bonus;
+      this.addPopup(
+        `擦身而过 +${bonus}`,
+        pc.x,
+        pc.y + 1.3,
+        '#7fdcff',
+        20
+      );
+      this.shake = Math.max(this.shake, 0.18 * config.screenShake);
+      this.audio.nearMiss();
+    }
+  }
+
   hijack(target) {
     if (this.state !== 'diving') return;
     this.state = 'hijack';
     this.hijackTimer = 0;
     this.hijackCount++;
+    this.contractTypes.add(target.type);
     this.diveTrail = [];
 
     this.playerCar = target;
+    this.sameCarTime = 0;
     target.isPlayer = true;
     target.ghost = false;
     target.ghostAlpha = 1;
@@ -980,6 +1270,7 @@ export class Game {
     target.speedEffective = target.cruiseSpeed;
 
     if (target.dir === -1) {
+      this.oncomingHijackCount++;
       target.flip = {
         t: 0,
         dur: config.hijackFlipTime,
@@ -1004,8 +1295,9 @@ export class Game {
     };
     this.wasWrongWay = false;
 
-    // 抢到迎面车后，甩尾会把你放进迎面车道。给 1.5 秒的碰撞保护窗口，
-    // 让玩家有机会按 → 回到右侧；否则同车道的迎面车会在翻转结束时立刻撞死你。
+    // 抢到迎面车后，甩尾会把你放进迎面车道。给一段碰撞保护窗口
+    // （config.escapeProtection），让玩家有机会按 → 回到右侧；
+    // 否则同车道的迎面车会在翻转结束时立刻撞死你。
     if (target.dir === -1) {
       this.escapeTimer = config.escapeProtection;
       this.escapeMax = config.escapeProtection;
@@ -1019,7 +1311,10 @@ export class Game {
     const bonus =
       config.hijackBonus + Math.max(0, this.combo - 1) * config.comboStep;
     this.score += bonus;
-    this.comboTimer = config.comboWindow;
+    this.comboWindowEffective =
+      config.comboWindow +
+      (target.type === 'sedan' ? config.sedanComboBonus : 0);
+    this.comboTimer = this.comboWindowEffective;
     this.comboFlash = 1;
     this.comboFlashText =
       this.combo > 1 ? `连击 ×${this.combo}` : '抢到了！';
@@ -1034,6 +1329,78 @@ export class Game {
       this.tutorialStage = 'hijacked';
       this.tutorialTime = 0;
     }
+  }
+
+  // ---------------------------------------------------------------- 悬赏目标
+
+  startNextContract() {
+    const currentId = this.contract ? this.contract.def.id : null;
+    let pool = CONTRACTS.filter((def) => def.id !== currentId);
+    if (pool.length === 0) pool = CONTRACTS;
+
+    const roll = this.contractRng ? this.contractRng() : Math.random();
+    const def = pool[Math.floor(roll * pool.length) % pool.length];
+    const level = this.contractsCompleted;
+    if (def.id === 'types') this.contractTypes.clear();
+
+    this.contract = {
+      def,
+      target: contractTarget(def, level),
+      reward: contractReward(def, level),
+      baseline: this.contractBaseline(def.id),
+      progress: 0,
+    };
+  }
+
+  contractBaseline(id) {
+    switch (id) {
+      case 'hijack':
+        return this.hijackCount;
+      case 'nearMiss':
+        return this.nearMissCount;
+      case 'oncoming':
+        return this.oncomingHijackCount;
+      case 'wrongWay':
+        return this.wrongWayTime;
+      case 'sameCar':
+        return this.sameCarTime;
+      default:
+        return 0;
+    }
+  }
+
+  contractProgressFor(contract) {
+    switch (contract.def.id) {
+      case 'hijack':
+        return Math.max(0, this.hijackCount - contract.baseline);
+      case 'nearMiss':
+        return Math.max(0, this.nearMissCount - contract.baseline);
+      case 'oncoming':
+        return Math.max(0, this.oncomingHijackCount - contract.baseline);
+      case 'wrongWay':
+        return Math.max(0, this.wrongWayTime - contract.baseline);
+      case 'types':
+        return this.contractTypes.size;
+      case 'sameCar':
+        return Math.max(0, this.sameCarTime - contract.baseline);
+      default:
+        return 0;
+    }
+  }
+
+  updateContract() {
+    const contract = this.contract;
+    if (!contract || this.state === 'dead') return;
+
+    contract.progress = this.contractProgressFor(contract);
+    if (contract.progress < contract.target) return;
+
+    this.score += contract.reward;
+    this.contractsCompleted++;
+    this.contractFlash = 1;
+    this.contractFlashText = `悬赏完成 +${contract.reward}`;
+    this.audio.contractComplete();
+    this.startNextContract();
   }
 
   // ---------------------------------------------------------------- 死亡
@@ -1406,6 +1773,7 @@ export class Game {
     if (this.shake < 0.01) this.shake = 0;
     this.flash = Math.max(0, this.flash - realStep * 2.2);
     this.comboFlash = Math.max(0, this.comboFlash - realStep * 1.7);
+    this.contractFlash = Math.max(0, this.contractFlash - realStep * 1.4);
     this.wrongWayFlash = Math.max(0, this.wrongWayFlash - realStep * 2);
     for (const t of this.diveTrail) t.life -= realStep;
     this.diveTrail = this.diveTrail.filter((t) => t.life > 0);

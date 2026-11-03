@@ -312,6 +312,20 @@ export class AudioManager {
     });
   }
 
+  contractComplete() {
+    const notes = [659.25, 783.99, 1046.5];
+    notes.forEach((f, i) => {
+      this.tone({
+        freq: f,
+        dur: 0.16,
+        gain: 0.09,
+        delay: i * 0.07,
+        type: 'triangle',
+      });
+    });
+    this.noise({ dur: 0.24, gain: 0.04, freq: 3200, q: 3 });
+  }
+
   bump() {
     this.tone({ freq: 90, endFreq: 45, dur: 0.14, gain: 0.16, type: 'sine' });
     this.noise({ dur: 0.18, gain: 0.1, freq: 700, endFreq: 260, q: 0.9 });
@@ -325,6 +339,30 @@ export class AudioManager {
       gain: 0.08,
       delay: 0.1,
       type: 'square',
+    });
+  }
+
+  wrongWayTier(tier = 1) {
+    const base = 740 + Math.max(0, tier - 1) * 120;
+    this.tone({ freq: base, dur: 0.08, gain: 0.09, type: 'square' });
+    this.tone({
+      freq: base * 1.5,
+      dur: 0.12,
+      gain: 0.08,
+      delay: 0.07,
+      type: 'square',
+    });
+    this.noise({ dur: 0.18, gain: 0.035, freq: 2200, q: 2 });
+  }
+
+  nearMiss() {
+    this.noise({ dur: 0.16, gain: 0.05, freq: 2600, endFreq: 900, q: 1.8 });
+    this.tone({
+      freq: 1180,
+      endFreq: 1560,
+      dur: 0.09,
+      gain: 0.045,
+      type: 'triangle',
     });
   }
 

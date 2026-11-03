@@ -42,7 +42,7 @@ class Server(http.server.ThreadingHTTPServer):
 
 
 with Server((HOST, PORT), Handler) as httpd:
-    print(f"抢车狂人本地服务器: http://localhost:{PORT}")
+    print(f"侠盗飞车本地服务器: http://localhost:{PORT}")
     if HOST not in ("127.0.0.1", "localhost"):
         try:
             local_ip = socket.gethostbyname(socket.gethostname())
